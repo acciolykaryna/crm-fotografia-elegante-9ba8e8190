@@ -60,6 +60,7 @@ const App = () => (
             }
           >
             <Route path="/" element={<Index />} />
+            <Route path="/dashboard" element={<Navigate to="/" replace />} />
             <Route path="/clientes" element={<Clients />} />
             <Route path="/projetos" element={<Projects />} />
             <Route path="/calendario" element={<CalendarPage />} />

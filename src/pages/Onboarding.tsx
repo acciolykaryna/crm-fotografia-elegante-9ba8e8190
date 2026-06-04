@@ -102,7 +102,7 @@ export default function Onboarding() {
           }
         }
 
-        window.location.href = '/'
+        window.location.href = '/dashboard'
       }
     } catch (error: any) {
       console.error('Error saving onboarding data:', error)

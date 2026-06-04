@@ -94,28 +94,28 @@ export type Database = {
       }
       invitations: {
         Row: {
-          id: string
-          tenant_id: string
+          created_at: string
           email: string
+          id: string
           role: string
           status: string
-          created_at: string
+          tenant_id: string
         }
         Insert: {
-          id?: string
-          tenant_id: string
+          created_at?: string
           email: string
+          id?: string
           role?: string
           status?: string
-          created_at?: string
+          tenant_id: string
         }
         Update: {
-          id?: string
-          tenant_id?: string
+          created_at?: string
           email?: string
+          id?: string
           role?: string
           status?: string
-          created_at?: string
+          tenant_id?: string
         }
         Relationships: [
           {
@@ -480,8 +480,8 @@ export const Constants = {
 //   id: uuid (not null, default: gen_random_uuid())
 //   tenant_id: uuid (not null)
 //   email: text (not null)
-//   role: text (not null, default: 'member')
-//   status: text (not null, default: 'pending')
+//   role: text (not null, default: 'member'::text)
+//   status: text (not null, default: 'pending'::text)
 //   created_at: timestamp with time zone (not null, default: now())
 // Table: message_templates
 //   id: uuid (not null, default: gen_random_uuid())
