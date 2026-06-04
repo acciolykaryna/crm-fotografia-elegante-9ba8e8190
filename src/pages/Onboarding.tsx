@@ -80,7 +80,7 @@ export default function Onboarding() {
           const emailList = emails
             .split(',')
             .map((e) => e.trim())
-            .filter((e) => e.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/))
+            .filter((e) => e !== '')
 
           if (emailList.length > 0) {
             const { error: inviteError } = await supabase.from('invitations').insert(
@@ -102,7 +102,7 @@ export default function Onboarding() {
           }
         }
 
-        window.location.href = '/dashboard'
+        window.location.href = '/'
       }
     } catch (error: any) {
       console.error('Error saving onboarding data:', error)

@@ -574,8 +574,9 @@ export const Constants = {
 // Table: profiles
 //   Policy "Users can update their own profile" (UPDATE, PERMISSIVE) roles={authenticated}
 //     USING: (id = auth.uid())
+//     WITH CHECK: (id = auth.uid())
 //   Policy "Users can view profiles in their tenant" (SELECT, PERMISSIVE) roles={authenticated}
-//     USING: ((tenant_id = get_user_tenant_id()) OR (id = auth.uid()))
+//     USING: ((id = auth.uid()) OR (tenant_id = get_user_tenant_id()))
 // Table: projects
 //   Policy "tenant_isolation_projects" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: ((tenant_id = get_user_tenant_id()) AND ((get_user_role() = 'admin'::text) OR (photographer_id = auth.uid())))
