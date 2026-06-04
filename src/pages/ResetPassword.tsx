@@ -1,31 +1,41 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Camera } from 'lucide-react'
+import { toast } from 'sonner'
 
-export default function Login() {
-  const [email, setEmail] = useState('')
+export default function ResetPassword() {
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const { signIn } = useAuth()
+  const { updatePassword } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (password !== confirmPassword) {
+      setError('As senhas não coincidem.')
+      return
+    }
+    if (password.length < 8) {
+      setError('A senha deve ter pelo menos 8 caracteres.')
+      return
+    }
     setLoading(true)
     setError('')
-    const { error } = await signIn(email, password)
+    const { error } = await updatePassword(password)
     if (error) {
       setError(error.message)
-      setLoading(false)
     } else {
-      navigate('/')
+      toast.success('Senha atualizada com sucesso!')
+      navigate('/login')
     }
+    setLoading(false)
   }
 
   return (
@@ -35,44 +45,40 @@ export default function Login() {
           <div className="mx-auto bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mb-4">
             <Camera className="h-8 w-8 text-primary" />
           </div>
-          <CardTitle className="font-serif text-2xl">Acesso ao CRM</CardTitle>
+          <CardTitle className="font-serif text-2xl">Nova Senha</CardTitle>
+          <CardDescription>Crie uma nova senha segura para sua conta</CardDescription>
         </CardHeader>
         <CardContent className="pt-6">
           <form onSubmit={handleSubmit} className="space-y-4">
-            {error && <div className="text-sm text-red-500 bg-red-50 p-2 rounded">{error}</div>}
+            {error && (
+              <div className="text-sm text-destructive bg-destructive/10 p-2 rounded">{error}</div>
+            )}
             <div className="space-y-2">
-              <Label>Email</Label>
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Senha</Label>
+              <Label>Nova Senha</Label>
               <Input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                placeholder="Mínimo de 8 caracteres"
+                minLength={8}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Confirmar Nova Senha</Label>
+              <Input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                placeholder="Digite a senha novamente"
+                minLength={8}
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Entrando...' : 'Entrar'}
+              {loading ? 'Salvando...' : 'Salvar Nova Senha'}
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm">
-            <Link to="/forgot-password" className="text-primary hover:underline">
-              Esqueceu sua senha?
-            </Link>
-          </div>
-          <div className="mt-4 text-center text-sm text-muted-foreground">
-            Não tem uma conta?{' '}
-            <Link to="/register" className="text-primary hover:underline font-medium">
-              Cadastre-se
-            </Link>
-          </div>
         </CardContent>
       </Card>
     </div>
