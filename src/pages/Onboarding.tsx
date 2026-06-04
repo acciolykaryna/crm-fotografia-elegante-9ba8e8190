@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useAuth } from '@/hooks/use-auth'
 import { supabase } from '@/lib/supabase/client'
+import { useToast } from '@/hooks/use-toast'
+import { Loader2 } from 'lucide-react'
 
 type ServiceType = 'Parto' | 'Gestante' | 'Newborn' | 'Família' | 'Corporativo' | 'Outro'
 
@@ -23,6 +25,7 @@ const ALL_SERVICES: ServiceType[] = [
 export default function Onboarding() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { toast } = useToast()
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
 
@@ -36,29 +39,54 @@ export default function Onboarding() {
 
   const handleFinish = async () => {
     if (!user) return
+
+    if (!name.trim()) {
+      toast({
+        title: 'Nome obrigatório',
+        description: 'O nome do estúdio não pode estar vazio.',
+        variant: 'destructive',
+      })
+      setStep(1)
+      return
+    }
+
     setLoading(true)
 
-    const { data: tenantData } = await supabase
-      .from('tenants')
-      .insert({
-        name,
-        branding: { primaryColor, services },
-      })
-      .select()
-      .single()
-
-    if (tenantData) {
-      await supabase
-        .from('profiles')
-        .update({
-          tenant_id: tenantData.id,
-          role: 'admin',
+    try {
+      const { data: tenantData, error: tenantError } = await supabase
+        .from('tenants')
+        .insert({
+          name,
+          branding: { primaryColor, services },
         })
-        .eq('id', user.id)
+        .select()
+        .single()
 
-      window.location.href = '/'
+      if (tenantError) throw tenantError
+
+      if (tenantData) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            tenant_id: tenantData.id,
+            role: 'admin',
+          })
+          .eq('id', user.id)
+
+        if (profileError) throw profileError
+
+        window.location.href = '/'
+      }
+    } catch (error) {
+      console.error('Error saving onboarding data:', error)
+      toast({
+        title: 'Erro',
+        description: 'Erro ao salvar configurações. Por favor, tente novamente.',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const toggleService = (srv: ServiceType) => {
@@ -164,11 +192,12 @@ export default function Onboarding() {
               Voltar
             </Button>
             {step < 3 ? (
-              <Button onClick={handleNext} disabled={step === 1 && !name}>
+              <Button onClick={handleNext} disabled={step === 1 && !name.trim()}>
                 Continuar <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             ) : (
-              <Button onClick={handleFinish} disabled={loading}>
+              <Button onClick={handleFinish} disabled={loading || !name.trim()}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {loading ? 'Salvando...' : 'Finalizar Configuração'}
               </Button>
             )}

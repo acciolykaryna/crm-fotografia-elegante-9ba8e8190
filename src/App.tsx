@@ -27,6 +27,9 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   if (!profile?.tenant_id && window.location.pathname !== '/onboarding') {
     return <Navigate to="/onboarding" replace />
   }
+  if (profile?.tenant_id && window.location.pathname === '/onboarding') {
+    return <Navigate to="/" replace />
+  }
   return <>{children}</>
 }
 
