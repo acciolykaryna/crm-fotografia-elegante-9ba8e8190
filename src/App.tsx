@@ -9,6 +9,7 @@ import Projects from './pages/Projects'
 import CalendarPage from './pages/Calendar'
 import Alerts from './pages/Alerts'
 import OnCall from './pages/OnCall'
+import Templates from './pages/Templates'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/calendario" element={<CalendarPage />} />
           <Route path="/sobreaviso" element={<OnCall />} />
           <Route path="/alertas" element={<Alerts />} />
+          <Route path="/templates" element={<Templates />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>

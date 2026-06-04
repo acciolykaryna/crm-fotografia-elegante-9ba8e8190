@@ -10,7 +10,16 @@ import {
   SidebarTrigger,
   SidebarFooter,
 } from '@/components/ui/sidebar'
-import { Home, Users, Calendar, Image as ImageIcon, Search, Bell, Baby } from 'lucide-react'
+import {
+  Home,
+  Users,
+  Calendar,
+  Image as ImageIcon,
+  Search,
+  Bell,
+  Baby,
+  MessageSquare,
+} from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -22,6 +31,7 @@ const navigation = [
   { name: 'Sobreaviso', href: '/sobreaviso', icon: Baby },
   { name: 'Calendário', href: '/calendario', icon: Calendar },
   { name: 'Alertas', href: '/alertas', icon: Bell },
+  { name: 'Templates', href: '/templates', icon: MessageSquare },
 ]
 
 export default function Layout() {

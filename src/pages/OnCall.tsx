@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Phone, CalendarHeart, Baby } from 'lucide-react'
+import { Phone, CalendarHeart, Baby, MessageSquare } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -13,10 +13,12 @@ import {
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import useCrmStore, { crmActions, Project } from '@/stores/useCrmStore'
+import { SendMessageDialog } from '@/components/SendMessageDialog'
 
 export default function OnCall() {
   const { projects, clients } = useCrmStore()
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
+  const [messageProject, setMessageProject] = useState<Project | null>(null)
 
   const onCallProjects = projects
     .filter((p) => !p.deleted && p.type === 'Parto' && p.status === 'Sobreaviso ativo')
@@ -82,15 +84,9 @@ export default function OnCall() {
                   <div className="flex flex-col sm:flex-row gap-3 mt-6">
                     <Button
                       className="flex-1 bg-green-600 hover:bg-green-700 gap-2 text-white"
-                      asChild
+                      onClick={() => setMessageProject(project)}
                     >
-                      <a
-                        href={`https://wa.me/55${client?.whatsapp}?text=Olá! Tudo bem? Como estão as contrações?`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        <Phone className="h-4 w-4" /> Acionar Família
-                      </a>
+                      <MessageSquare className="h-4 w-4" /> Acionar Família
                     </Button>
                     <Button
                       variant="outline"
@@ -106,6 +102,15 @@ export default function OnCall() {
           })
         )}
       </div>
+
+      <SendMessageDialog
+        client={
+          messageProject ? clients.find((c) => c.id === messageProject.clientId) || null : null
+        }
+        project={messageProject}
+        open={!!messageProject}
+        onOpenChange={(o) => !o && setMessageProject(null)}
+      />
 
       <Dialog open={!!selectedProject} onOpenChange={(o) => !o && setSelectedProject(null)}>
         <DialogContent>

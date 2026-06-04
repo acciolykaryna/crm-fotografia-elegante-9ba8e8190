@@ -1,10 +1,13 @@
-import { Bell, CheckCircle2, Clock } from 'lucide-react'
+import { useState } from 'react'
+import { Bell, CheckCircle2, Clock, MessageSquare } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import useCrmStore, { crmActions } from '@/stores/useCrmStore'
+import useCrmStore, { crmActions, Client, Alert } from '@/stores/useCrmStore'
+import { SendMessageDialog } from '@/components/SendMessageDialog'
 
 export default function Alerts() {
-  const { alerts, clients } = useCrmStore()
+  const { alerts, clients, projects } = useCrmStore()
+  const [messageAlert, setMessageAlert] = useState<{ client: Client; alert: Alert } | null>(null)
 
   const pendingAlerts = alerts
     .filter((a) => a.status === 'Pending')
@@ -51,6 +54,16 @@ export default function Alerts() {
                     </div>
                   </div>
                   <div className="flex gap-2 w-full sm:w-auto">
+                    {client && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 sm:flex-none gap-2 text-green-600 hover:text-green-700 hover:bg-green-50"
+                        onClick={() => setMessageAlert({ client, alert })}
+                      >
+                        <MessageSquare className="h-4 w-4" /> Contatar
+                      </Button>
+                    )}
                     <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
                       Adiar
                     </Button>
@@ -68,6 +81,17 @@ export default function Alerts() {
           })
         )}
       </div>
+      <SendMessageDialog
+        client={messageAlert?.client || null}
+        alert={messageAlert?.alert || null}
+        project={
+          messageAlert?.alert?.projectId
+            ? projects.find((p) => p.id === messageAlert.alert.projectId)
+            : null
+        }
+        open={!!messageAlert}
+        onOpenChange={(o) => !o && setMessageAlert(null)}
+      />
     </div>
   )
 }

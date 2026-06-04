@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Search, MoreHorizontal, User, Phone, Trash2 } from 'lucide-react'
+import { Plus, Search, MoreHorizontal, User, Phone, Trash2, MessageCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -23,6 +23,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import useCrmStore, { crmActions, Client, LeadSource, Child } from '@/stores/useCrmStore'
+import { SendMessageDialog } from '@/components/SendMessageDialog'
 import {
   Select,
   SelectContent,
@@ -40,6 +41,7 @@ export default function Clients() {
 
   const [source, setSource] = useState<LeadSource>('Instagram (Orgânico)')
   const [children, setChildren] = useState<Child[]>([])
+  const [isMessageOpen, setIsMessageOpen] = useState(false)
 
   const activeClients = clients.filter((c) => !c.deleted)
   const filteredClients = activeClients.filter(
@@ -324,11 +326,27 @@ export default function Clients() {
                     R$ {calculateLTV(selectedClient.id).toLocaleString()}
                   </p>
                 </div>
+
+                <div className="pt-6 border-t border-border">
+                  <Button
+                    className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white"
+                    onClick={() => setIsMessageOpen(true)}
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    Enviar Mensagem Rápida (WhatsApp)
+                  </Button>
+                </div>
               </div>
             </>
           )}
         </SheetContent>
       </Sheet>
+
+      <SendMessageDialog
+        client={selectedClient}
+        open={isMessageOpen}
+        onOpenChange={setIsMessageOpen}
+      />
     </div>
   )
 }

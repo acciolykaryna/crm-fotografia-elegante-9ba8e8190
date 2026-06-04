@@ -67,6 +67,12 @@ export interface Project {
   imageUrl?: string
 }
 
+export interface MessageTemplate {
+  id: string
+  name: string
+  body: string
+}
+
 export interface Alert {
   id: string
   clientId: string
@@ -87,6 +93,7 @@ interface CrmState {
   clients: Client[]
   projects: Project[]
   alerts: Alert[]
+  templates: MessageTemplate[]
 }
 
 const today = new Date().toISOString().split('T')[0]
@@ -167,6 +174,28 @@ let state: CrmState = {
       status: 'Pending',
     },
   ],
+  templates: [
+    {
+      id: 't1',
+      name: 'Boas-vindas',
+      body: 'Olá {client_name}! Seja muito bem-vinda(o) à nossa família. Estamos muito felizes em ter você conosco.',
+    },
+    {
+      id: 't2',
+      name: 'Lembrete de Ensaio',
+      body: 'Oi {client_name}, passando para lembrar do nosso ensaio de {shoot_type} programado para o dia {event_date}.',
+    },
+    {
+      id: 't3',
+      name: 'Feliz Aniversário (Bebê)',
+      body: 'Parabéns {baby_name} pelo seu aniversário! 🎉 Um abraço especial para toda a família.',
+    },
+    {
+      id: 't4',
+      name: 'Reativar Cliente (Anual)',
+      body: 'Oi {client_name}, já faz um tempo desde nosso último encontro! Que tal atualizarmos as fotos da família?',
+    },
+  ],
 }
 
 const listeners = new Set<() => void>()
@@ -243,6 +272,21 @@ export const crmActions = {
         ],
       })
     }
+  },
+  addTemplate: (template: Omit<MessageTemplate, 'id'>) => {
+    setState({
+      templates: [...state.templates, { ...template, id: Math.random().toString(36).substr(2, 9) }],
+    })
+  },
+  updateTemplate: (id: string, updates: Partial<MessageTemplate>) => {
+    setState({
+      templates: state.templates.map((t) => (t.id === id ? { ...t, ...updates } : t)),
+    })
+  },
+  deleteTemplate: (id: string) => {
+    setState({
+      templates: state.templates.filter((t) => t.id !== id),
+    })
   },
 }
 
