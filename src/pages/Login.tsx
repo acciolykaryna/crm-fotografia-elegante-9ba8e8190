@@ -5,11 +5,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Camera } from 'lucide-react'
+import { Camera, Eye, EyeOff, Loader2 } from 'lucide-react'
 
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const { signIn } = useAuth()
@@ -21,7 +22,13 @@ export default function Login() {
     setError('')
     const { error } = await signIn(email, password)
     if (error) {
-      setError(error.message)
+      if (error.message.toLowerCase().includes('email not confirmed')) {
+        setError('Por favor, verifique seu endereço de e-mail antes de fazer login.')
+      } else if (error.message.toLowerCase().includes('invalid login credentials')) {
+        setError('E-mail ou senha incorretos.')
+      } else {
+        setError(error.message)
+      }
       setLoading(false)
     } else {
       navigate('/')
@@ -51,14 +58,25 @@ export default function Login() {
             </div>
             <div className="space-y-2">
               <Label>Senha</Label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+              <div className="relative">
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {loading ? 'Entrando...' : 'Entrar'}
             </Button>
           </form>
