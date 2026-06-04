@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Calendar as CalendarIcon, Plus } from 'lucide-react'
+import { Calendar as CalendarIcon, Plus, LayoutDashboard } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -21,7 +22,7 @@ import {
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import useCrmStore, { ServiceType } from '@/stores/useCrmStore'
+
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
@@ -42,17 +43,23 @@ const KANBAN_COLUMNS: { id: ProjectStatus; title: string; color: string }[] = [
 ]
 
 export default function Projects() {
-  const { tenant } = useCrmStore()
   const { user, profile } = useAuth()
   const { toast } = useToast()
 
   const [open, setOpen] = useState(false)
-  const [type, setType] = useState<ServiceType>('Família')
+  const [type, setType] = useState<string>('Família')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const [dbClients, setDbClients] = useState<any[]>([])
   const [dbProjects, setDbProjects] = useState<any[]>([])
   const [dbProfiles, setDbProfiles] = useState<any[]>([])
+  const [services, setServices] = useState<string[]>([
+    'Parto',
+    'Gestante',
+    'Newborn',
+    'Família',
+    'Outro',
+  ])
   const [isLoading, setIsLoading] = useState(true)
 
   // Filters
@@ -68,12 +75,13 @@ export default function Projects() {
     }
 
     try {
-      const [clientsRes, projectsRes, profilesRes] = await Promise.all([
+      const [clientsRes, projectsRes, profilesRes, tenantRes] = await Promise.all([
         supabase.from('clients').select('id, name').order('name'),
         supabase
           .from('projects')
           .select('*, client:clients(name), photographer:profiles(full_name, avatar_url)'),
         supabase.from('profiles').select('id, full_name, avatar_url'),
+        supabase.from('tenants').select('branding').eq('id', profile.tenant_id).single(),
       ])
 
       if (clientsRes.error) throw clientsRes.error
@@ -83,6 +91,11 @@ export default function Projects() {
       setDbClients(clientsRes.data || [])
       setDbProjects(projectsRes.data || [])
       setDbProfiles(profilesRes.data || [])
+
+      const tBranding = tenantRes.data?.branding as any
+      if (tBranding?.services) {
+        setServices(tBranding.services)
+      }
     } catch (err: any) {
       toast({
         title: 'Erro ao carregar dados',
@@ -208,6 +221,19 @@ export default function Projects() {
     return map
   }, [filteredProjects])
 
+  if (isLoading) {
+    return (
+      <div className="page-container h-[calc(100vh-4rem)] flex flex-col space-y-6 p-6">
+        <Skeleton className="h-10 w-64" />
+        <div className="flex gap-4 h-full">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="w-80 h-full rounded-xl" />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="page-container h-[calc(100vh-4rem)] flex flex-col space-y-6 p-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shrink-0">
@@ -239,7 +265,7 @@ export default function Projects() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos Serviços</SelectItem>
-              {tenant.services.map((s) => (
+              {services.map((s) => (
                 <SelectItem key={s} value={s}>
                   {s}
                 </SelectItem>
@@ -289,12 +315,12 @@ export default function Projects() {
                   </div>
                   <div className="space-y-2">
                     <Label>Tipo de Serviço</Label>
-                    <Select value={type} onValueChange={(v) => setType(v as ServiceType)}>
+                    <Select value={type} onValueChange={setType}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {tenant.services.map((t) => (
+                        {services.map((t) => (
                           <SelectItem key={t} value={t}>
                             {t}
                           </SelectItem>

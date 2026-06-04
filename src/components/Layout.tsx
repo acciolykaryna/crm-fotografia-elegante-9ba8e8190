@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { Link, Outlet, useLocation } from 'react-router-dom'
+import { useMemo, useEffect, useState } from 'react'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   SidebarProvider,
   Sidebar,
@@ -21,6 +21,7 @@ import {
   Baby,
   MessageSquare,
   Settings,
+  LogOut,
 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
@@ -33,9 +34,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import useCrmStore, { crmActions } from '@/stores/useCrmStore'
+import { useAuth } from '@/hooks/use-auth'
+import { supabase } from '@/lib/supabase/client'
+import { Skeleton } from '@/components/ui/skeleton'
 
 function hexToHsl(hex: string) {
+  if (!hex) return '0 0% 0%'
   let r = 0,
     g = 0,
     b = 0
@@ -77,23 +81,55 @@ function hexToHsl(hex: string) {
 
 export default function Layout() {
   const location = useLocation()
-  const { tenant, currentUser, users } = useCrmStore()
+  const navigate = useNavigate()
+  const { user, profile, signOut } = useAuth()
+  const [tenant, setTenant] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    if (profile?.tenant_id) {
+      supabase
+        .from('tenants')
+        .select('*')
+        .eq('id', profile.tenant_id)
+        .single()
+        .then(({ data }) => {
+          if (data) setTenant(data)
+          setIsLoading(false)
+        })
+    } else {
+      setIsLoading(false)
+    }
+  }, [profile?.tenant_id])
 
   const primaryHsl = useMemo(
-    () => hexToHsl(tenant.primaryColor || '#D4AF37'),
-    [tenant.primaryColor],
+    () => hexToHsl(tenant?.branding?.primaryColor || '#D4AF37'),
+    [tenant?.branding?.primaryColor],
   )
 
   const navigation = [
     { name: 'Dashboard', href: '/', icon: Home, show: true },
-    { name: 'Clientes', href: '/clientes', icon: Users, show: currentUser.role === 'admin' },
+    { name: 'Clientes', href: '/clientes', icon: Users, show: profile?.role === 'admin' },
     { name: 'Ensaios e Projetos', href: '/projetos', icon: ImageIcon, show: true },
     { name: 'Sobreaviso', href: '/sobreaviso', icon: Baby, show: true },
     { name: 'Calendário', href: '/calendario', icon: Calendar, show: true },
     { name: 'Alertas', href: '/alertas', icon: Bell, show: true },
     { name: 'Templates', href: '/templates', icon: MessageSquare, show: true },
-    { name: 'Equipe', href: '/equipe', icon: Settings, show: currentUser.role === 'admin' },
+    { name: 'Equipe', href: '/equipe', icon: Settings, show: profile?.role === 'admin' },
   ].filter((n) => n.show)
+
+  const handleSignOut = async () => {
+    await signOut()
+    navigate('/login')
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <Skeleton className="h-12 w-12 rounded-full" />
+      </div>
+    )
+  }
 
   return (
     <div style={{ '--primary': primaryHsl, '--ring': primaryHsl } as React.CSSProperties}>
@@ -102,7 +138,7 @@ export default function Layout() {
           <SidebarHeader className="h-16 flex items-center px-6">
             <Link to="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
               <span className="font-serif text-2xl font-bold tracking-tight text-primary">
-                {tenant.name || 'Elegante'}
+                {tenant?.name || 'Studio'}
               </span>
             </Link>
           </SidebarHeader>
@@ -125,33 +161,29 @@ export default function Layout() {
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-3 rounded-lg bg-secondary/50 p-3 hover:bg-secondary/70 transition-colors w-full text-left">
                   <Avatar className="h-9 w-9 border border-border">
-                    <AvatarImage src={currentUser.avatar} />
-                    <AvatarFallback>{currentUser.name.charAt(0)}</AvatarFallback>
+                    <AvatarImage src={profile?.avatar_url || ''} />
+                    <AvatarFallback>{profile?.full_name?.charAt(0) || 'U'}</AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col flex-1 overflow-hidden">
-                    <span className="text-sm font-semibold truncate">{currentUser.name}</span>
+                    <span className="text-sm font-semibold truncate">
+                      {profile?.full_name || 'Usuário'}
+                    </span>
                     <span className="text-xs text-muted-foreground capitalize">
-                      {currentUser.role}
+                      {profile?.role || 'Membro'}
                     </span>
                   </div>
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-[240px]">
-                <DropdownMenuLabel>Alternar Usuário (Demo)</DropdownMenuLabel>
+                <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {users.map((u) => (
-                  <DropdownMenuItem
-                    key={u.id}
-                    onClick={() => crmActions.setCurrentUser(u.id)}
-                    className="flex items-center justify-between"
-                  >
-                    <span>
-                      {u.name}{' '}
-                      <span className="text-muted-foreground text-xs ml-1">({u.role})</span>
-                    </span>
-                    {currentUser.id === u.id && <div className="w-2 h-2 bg-primary rounded-full" />}
-                  </DropdownMenuItem>
-                ))}
+                <DropdownMenuItem
+                  className="text-destructive focus:bg-destructive focus:text-destructive-foreground cursor-pointer"
+                  onClick={handleSignOut}
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sair
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarFooter>
@@ -174,7 +206,6 @@ export default function Layout() {
               <Button variant="ghost" size="icon" className="relative rounded-full" asChild>
                 <Link to="/alertas">
                   <Bell className="h-5 w-5 text-muted-foreground" />
-                  <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary ring-2 ring-background"></span>
                 </Link>
               </Button>
             </div>

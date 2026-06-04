@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Bell, CheckCircle2, Clock, MessageSquare } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase/client'
@@ -9,15 +10,18 @@ export default function Alerts() {
   const [alerts, setAlerts] = useState<any[]>([])
   const [clients, setClients] = useState<any[]>([])
   const [messageAlert, setMessageAlert] = useState<any | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     const fetchData = async () => {
+      setIsLoading(true)
       const [alertsRes, clientsRes] = await Promise.all([
         supabase.from('alerts').select('*').eq('status', 'pending'),
         supabase.from('clients').select('*'),
       ])
       if (alertsRes.data) setAlerts(alertsRes.data)
       if (clientsRes.data) setClients(clientsRes.data)
+      setIsLoading(false)
     }
     fetchData()
   }, [])
@@ -29,6 +33,19 @@ export default function Alerts() {
   const handleResolve = async (id: string) => {
     await supabase.from('alerts').update({ status: 'done' }).eq('id', id)
     setAlerts(alerts.filter((a) => a.id !== id))
+  }
+
+  if (isLoading) {
+    return (
+      <div className="page-container space-y-6 p-6">
+        <Skeleton className="h-10 w-64" />
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-20 w-full" />
+          ))}
+        </div>
+      </div>
+    )
   }
 
   return (

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Calendar,
@@ -13,17 +13,46 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import useCrmStore from '@/stores/useCrmStore'
+import { supabase } from '@/lib/supabase/client'
+import { useAuth } from '@/hooks/use-auth'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export default function Index() {
-  const { projects, clients, alerts, currentUser, users, tenant } = useCrmStore()
+  const { profile, user } = useAuth()
 
-  const isAdmin = currentUser.role === 'admin'
+  const [projects, setProjects] = useState<any[]>([])
+  const [payments, setPayments] = useState<any[]>([])
+  const [alerts, setAlerts] = useState<any[]>([])
+  const [clients, setClients] = useState<any[]>([])
+  const [users, setUsers] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  const isAdmin = profile?.role === 'admin'
+
+  useEffect(() => {
+    if (!profile?.tenant_id) return
+    const fetchData = async () => {
+      const [projRes, payRes, alertRes, clientRes, usersRes] = await Promise.all([
+        supabase.from('projects').select('*'),
+        supabase.from('payments').select('*'),
+        supabase.from('alerts').select('*').eq('status', 'pending'),
+        supabase.from('clients').select('*'),
+        supabase.from('profiles').select('*'),
+      ])
+      if (projRes.data) setProjects(projRes.data)
+      if (payRes.data) setPayments(payRes.data)
+      if (alertRes.data) setAlerts(alertRes.data)
+      if (clientRes.data) setClients(clientRes.data)
+      if (usersRes.data) setUsers(usersRes.data)
+      setIsLoading(false)
+    }
+    fetchData()
+  }, [profile?.tenant_id])
 
   const visibleProjects = useMemo(() => {
-    if (isAdmin) return projects.filter((p) => !p.deleted)
-    return projects.filter((p) => !p.deleted && p.assignedPhotographerId === currentUser.id)
-  }, [projects, isAdmin, currentUser.id])
+    if (isAdmin) return projects
+    return projects.filter((p) => p.photographer_id === user?.id)
+  }, [projects, isAdmin, user?.id])
 
   const currentMonthStr = new Date().toISOString().slice(0, 7)
   let receivedThisMonth = 0
@@ -31,89 +60,102 @@ export default function Index() {
   let overdueTotal = 0
 
   visibleProjects.forEach((p) => {
-    p.installments.forEach((inst) => {
-      if (inst.paid && inst.dueDate.startsWith(currentMonthStr)) {
-        receivedThisMonth += inst.amount
+    const projPayments = payments.filter((pay) => pay.project_id === p.id)
+    projPayments.forEach((inst) => {
+      if (inst.status === 'paid' && inst.due_date?.startsWith(currentMonthStr)) {
+        receivedThisMonth += Number(inst.amount)
       }
-      if (!inst.paid) {
-        if (inst.dueDate.startsWith(currentMonthStr)) expectedThisMonth += inst.amount
-        if (new Date(inst.dueDate) < new Date(new Date().toISOString().split('T')[0]))
-          overdueTotal += inst.amount
+      if (inst.status === 'pending') {
+        if (inst.due_date?.startsWith(currentMonthStr)) expectedThisMonth += Number(inst.amount)
+        if (
+          inst.due_date &&
+          new Date(inst.due_date) < new Date(new Date().toISOString().split('T')[0])
+        ) {
+          overdueTotal += Number(inst.amount)
+        }
       }
     })
   })
 
   const activeOnCalls = visibleProjects.filter((p) => p.status === 'Sobreaviso ativo')
-  const pendingAlerts = alerts.filter((a) => a.status === 'Pending').slice(0, 5)
+  const pendingAlerts = alerts.slice(0, 5)
 
   // Check Overlaps (Admin only)
   const overlapAlerts = useMemo(() => {
     if (!isAdmin) return []
-    const onCalls = projects.filter((p) => !p.deleted && p.status === 'Sobreaviso ativo')
+    const onCalls = projects.filter((p) => p.status === 'Sobreaviso ativo')
     const conflicts: any[] = []
 
-    // Group by photographer and week
     const groups = new Map<string, typeof onCalls>()
     onCalls.forEach((p) => {
-      if (!p.assignedPhotographerId) return
+      if (!p.photographer_id) return
       if (!p.date) return
-      // simplistic week grouping based on year-week
       const d = new Date(p.date)
       const week = `${d.getFullYear()}-${Math.ceil(d.getDate() / 7)}`
-      const key = `${p.assignedPhotographerId}_${week}`
+      const key = `${p.photographer_id}_${week}`
       if (!groups.has(key)) groups.set(key, [])
       groups.get(key)!.push(p)
     })
 
     groups.forEach((items, key) => {
-      // Find overlaps where no backup is defined
-      const noBackup = items.filter((i) => !i.backupPhotographerId)
-      if (noBackup.length > 1) {
+      if (items.length > 1) {
         const photoId = key.split('_')[0]
         const photo = users.find((u) => u.id === photoId)
-        conflicts.push({ photographer: photo, count: noBackup.length, jobs: noBackup })
+        conflicts.push({ photographer: photo, count: items.length, jobs: items })
       }
     })
     return conflicts
   }, [projects, isAdmin, users])
 
-  const metrics =
-    isAdmin || currentUser.canViewFinance
-      ? [
-          {
-            title: 'Receita Mês (Recebida)',
-            value: `R$ ${receivedThisMonth.toLocaleString()}`,
-            icon: DollarSign,
-          },
-          {
-            title: 'A Receber (Mês)',
-            value: `R$ ${expectedThisMonth.toLocaleString()}`,
-            icon: Calendar,
-          },
-          {
-            title: 'Total em Atraso',
-            value: `R$ ${overdueTotal.toLocaleString()}`,
-            icon: AlertCircle,
-          },
-          { title: 'Partos em Sobreaviso', value: activeOnCalls.length.toString(), icon: Baby },
-        ]
-      : [
-          {
-            title: 'Meus Jobs Ativos',
-            value: visibleProjects
-              .filter((p) => !['Concluído', 'Arquivado'].includes(p.status))
-              .length.toString(),
-            icon: Calendar,
-          },
-          { title: 'Meus Partos', value: activeOnCalls.length.toString(), icon: Baby },
-        ]
+  const metrics = isAdmin
+    ? [
+        {
+          title: 'Receita Mês (Recebida)',
+          value: `R$ ${receivedThisMonth.toLocaleString('pt-BR')}`,
+          icon: DollarSign,
+        },
+        {
+          title: 'A Receber (Mês)',
+          value: `R$ ${expectedThisMonth.toLocaleString('pt-BR')}`,
+          icon: Calendar,
+        },
+        {
+          title: 'Total em Atraso',
+          value: `R$ ${overdueTotal.toLocaleString('pt-BR')}`,
+          icon: AlertCircle,
+        },
+        { title: 'Partos em Sobreaviso', value: activeOnCalls.length.toString(), icon: Baby },
+      ]
+    : [
+        {
+          title: 'Meus Jobs Ativos',
+          value: visibleProjects
+            .filter((p) => !['Concluído', 'Arquivado'].includes(p.status))
+            .length.toString(),
+          icon: Calendar,
+        },
+        { title: 'Meus Partos', value: activeOnCalls.length.toString(), icon: Baby },
+      ]
+
+  if (isLoading) {
+    return (
+      <div className="page-container space-y-8 p-6">
+        <Skeleton className="h-10 w-64" />
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-32 w-full" />
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="page-container space-y-8 p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-serif font-bold text-foreground">
-            Bom dia, {currentUser.name.split(' ')[0]}
+            Bom dia, {profile?.full_name?.split(' ')[0] || 'Usuário'}
           </h1>
           <p className="text-muted-foreground mt-1">
             Aqui está o resumo da {isAdmin ? 'sua empresa' : 'sua agenda'} hoje.
@@ -130,23 +172,17 @@ export default function Index() {
           <div>
             <h3 className="font-semibold text-destructive">Alerta de Sobreposição de Partos</h3>
             <p className="text-sm text-destructive/90 mt-1">
-              Detectamos múltiplos partos na mesma semana para o mesmo fotógrafo sem backup
-              definido.
+              Detectamos múltiplos partos na mesma semana para o mesmo fotógrafo.
             </p>
             <div className="mt-3 space-y-2">
               {overlapAlerts.map((c, i) => (
                 <div key={i} className="text-sm flex items-center gap-2">
                   <Avatar className="h-5 w-5">
-                    <AvatarImage src={c.photographer?.avatar} />
+                    <AvatarImage src={c.photographer?.avatar_url} />
+                    <AvatarFallback>{c.photographer?.full_name?.[0] || 'U'}</AvatarFallback>
                   </Avatar>
-                  <strong>{c.photographer?.name}</strong> tem {c.count} partos concorrentes.
-                  <Button
-                    variant="link"
-                    asChild
-                    className="h-auto p-0 text-destructive underline ml-2"
-                  >
-                    <Link to="/sobreaviso">Atribuir backups</Link>
-                  </Button>
+                  <strong>{c.photographer?.full_name || 'Usuário'}</strong> tem {c.count} partos
+                  concorrentes.
                 </div>
               ))}
             </div>
@@ -189,8 +225,8 @@ export default function Index() {
               </p>
             ) : (
               activeOnCalls.map((shoot) => {
-                const client = clients.find((c) => c.id === shoot.clientId)
-                const assigned = users.find((u) => u.id === shoot.assignedPhotographerId)
+                const client = clients.find((c) => c.id === shoot.client_id)
+                const assigned = users.find((u) => u.id === shoot.photographer_id)
                 return (
                   <div key={shoot.id} className="flex items-center gap-4 group">
                     <div className="h-12 w-12 rounded-lg bg-secondary/50 flex flex-col items-center justify-center text-primary shrink-0 border border-border/50 transition-colors group-hover:bg-primary/10">
@@ -201,7 +237,7 @@ export default function Index() {
                         <p className="text-sm font-medium leading-none">{shoot.title}</p>
                         {isAdmin && assigned && (
                           <Badge variant="outline" className="text-[10px] ml-2 font-normal">
-                            {assigned.name.split(' ')[0]}
+                            {assigned.full_name?.split(' ')[0]}
                           </Badge>
                         )}
                       </div>
@@ -237,10 +273,10 @@ export default function Index() {
                 >
                   <div className="absolute left-0 top-1.5 h-4 w-4 rounded-full border-2 border-background bg-primary" />
                   <div className="flex-1 space-y-1">
-                    <p className="text-sm text-foreground">{alert.title}</p>
+                    <p className="text-sm text-foreground">{alert.type}</p>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">
-                        {new Date(alert.dueDate).toLocaleDateString('pt-BR')}
+                        {alert.due_date ? new Date(alert.due_date).toLocaleDateString('pt-BR') : ''}
                       </span>
                     </div>
                   </div>

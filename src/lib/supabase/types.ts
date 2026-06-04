@@ -246,6 +246,8 @@ export type Database = {
           status: string
           tenant_id: string
           title: string
+          total_value: number
+          type: string
         }
         Insert: {
           client_id: string
@@ -256,6 +258,8 @@ export type Database = {
           status: string
           tenant_id?: string
           title: string
+          total_value?: number
+          type?: string
         }
         Update: {
           client_id?: string
@@ -266,6 +270,8 @@ export type Database = {
           status?: string
           tenant_id?: string
           title?: string
+          total_value?: number
+          type?: string
         }
         Relationships: [
           {
@@ -512,6 +518,8 @@ export const Constants = {
 //   status: text (not null)
 //   date: timestamp with time zone (nullable)
 //   created_at: timestamp with time zone (not null, default: now())
+//   type: text (not null, default: 'Família'::text)
+//   total_value: numeric (not null, default: 0)
 // Table: tenants
 //   id: uuid (not null, default: gen_random_uuid())
 //   name: text (not null)

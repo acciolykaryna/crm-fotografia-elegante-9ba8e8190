@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Plus, Search, MoreHorizontal, Phone, Mail, MessageCircle } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -31,13 +32,16 @@ export default function Clients() {
   const [search, setSearch] = useState('')
   const [selectedClient, setSelectedClient] = useState<any | null>(null)
   const [isMessageOpen, setIsMessageOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   const fetchClients = async () => {
+    setIsLoading(true)
     const { data } = await supabase
       .from('clients')
       .select('*')
       .order('created_at', { ascending: false })
     if (data) setClients(data)
+    setIsLoading(false)
   }
 
   useEffect(() => {
@@ -66,6 +70,15 @@ export default function Clients() {
     } else {
       toast({ title: 'Erro', description: error.message, variant: 'destructive' })
     }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="page-container space-y-6 p-6">
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-96 w-full rounded-xl" />
+      </div>
+    )
   }
 
   return (
