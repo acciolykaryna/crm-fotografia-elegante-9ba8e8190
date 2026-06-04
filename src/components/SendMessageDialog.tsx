@@ -93,19 +93,20 @@ export function SendMessageDialog({
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label>Template de Mensagem</Label>
-            <Select value={selectedTemplateId} onValueChange={handleTemplateChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione um template..." />
-              </SelectTrigger>
-              <SelectContent>
-                {templates.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Template Rápido</Label>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {templates.map((t) => (
+                <Button
+                  key={t.id}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleTemplateChange(t.id)}
+                  className={selectedTemplateId === t.id ? 'border-primary text-primary' : ''}
+                >
+                  {t.name}
+                </Button>
+              ))}
+            </div>
           </div>
 
           <div className="space-y-2">

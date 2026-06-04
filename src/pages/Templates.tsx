@@ -24,11 +24,13 @@ export default function Templates() {
 
   const [name, setName] = useState('')
   const [body, setBody] = useState('')
+  const [category, setCategory] = useState('')
 
   const handleOpenNew = () => {
     setEditingTemplate(null)
     setName('')
     setBody('')
+    setCategory('Lembretes')
     setOpen(true)
   }
 
@@ -36,6 +38,7 @@ export default function Templates() {
     setEditingTemplate(t)
     setName(t.name)
     setBody(t.body)
+    setCategory(t.category || 'Geral')
     setOpen(true)
   }
 
@@ -43,7 +46,7 @@ export default function Templates() {
     if (!name.trim() || !body.trim()) return
 
     if (editingTemplate) {
-      crmActions.updateTemplate(editingTemplate.id, { name, body })
+      crmActions.updateTemplate(editingTemplate.id, { name, body, category })
       toast({ title: 'Template atualizado com sucesso.' })
     } else {
       crmActions.addTemplate({ name, body })
@@ -85,7 +88,12 @@ export default function Templates() {
           >
             <CardHeader className="pb-2">
               <div className="flex items-start justify-between gap-2">
-                <CardTitle className="text-lg">{t.name}</CardTitle>
+                <div>
+                  <Badge variant="outline" className="mb-1 text-[10px]">
+                    {t.category || 'Geral'}
+                  </Badge>
+                  <CardTitle className="text-lg">{t.name}</CardTitle>
+                </div>
                 <MessageSquare className="h-4 w-4 text-muted-foreground shrink-0" />
               </div>
             </CardHeader>

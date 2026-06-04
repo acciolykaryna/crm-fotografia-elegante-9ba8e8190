@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 
-export type ServiceType = 'Parto' | 'Gestante' | 'Newborn' | 'Família' | 'Outro'
+export type ServiceType = 'Parto' | 'Gestante' | 'Newborn' | 'Família' | 'Outro' | string
 export type LeadSource =
   | 'Instagram (Orgânico)'
   | 'Instagram (Anúncio)'
@@ -65,12 +65,15 @@ export interface Project {
   deleted?: boolean
   progress: number
   imageUrl?: string
+  assignedPhotographerId?: string
+  backupPhotographerId?: string
 }
 
 export interface MessageTemplate {
   id: string
   name: string
   body: string
+  category?: string
 }
 
 export interface Alert {
@@ -84,12 +87,37 @@ export interface Alert {
     | 'Baby Milestone'
     | 'Follow-up'
     | 'Payment'
+    | 'System'
   title: string
   dueDate: string
   status: 'Pending' | 'Completed' | 'Snoozed' | 'Ignored'
 }
 
+export interface User {
+  id: string
+  name: string
+  email: string
+  role: 'admin' | 'member'
+  avatar: string
+  color: string
+  active: boolean
+  roles: string[]
+  canViewFinance: boolean
+}
+
+export interface Tenant {
+  id: string
+  name: string
+  logo: string
+  primaryColor: string
+  services: ServiceType[]
+  isOnboarded: boolean
+}
+
 interface CrmState {
+  tenant: Tenant
+  currentUser: User
+  users: User[]
   clients: Client[]
   projects: Project[]
   alerts: Alert[]
@@ -100,7 +128,41 @@ const today = new Date().toISOString().split('T')[0]
 const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 const lastMonth = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
+const defaultAdmin: User = {
+  id: 'u1',
+  name: 'Fotografia Studio',
+  email: 'admin@studio.com',
+  role: 'admin',
+  avatar: 'https://img.usecurling.com/ppl/thumbnail?gender=female&seed=1',
+  color: '#D4AF37',
+  active: true,
+  roles: ['fotógrafa principal'],
+  canViewFinance: true,
+}
+
+const defaultMember: User = {
+  id: 'u2',
+  name: 'Ana Fotógrafa',
+  email: 'ana@studio.com',
+  role: 'member',
+  avatar: 'https://img.usecurling.com/ppl/thumbnail?gender=female&seed=2',
+  color: '#6366f1',
+  active: true,
+  roles: ['segunda fotógrafa'],
+  canViewFinance: false,
+}
+
 let state: CrmState = {
+  tenant: {
+    id: 't1',
+    name: 'Elegante Studio',
+    logo: '',
+    primaryColor: '#eab308',
+    services: ['Parto', 'Gestante', 'Newborn', 'Família'],
+    isOnboarded: false,
+  },
+  currentUser: defaultAdmin,
+  users: [defaultAdmin, defaultMember],
   clients: [
     {
       id: '1',
@@ -136,6 +198,7 @@ let state: CrmState = {
       createdAt: '2024-03-01',
       progress: 100,
       imageUrl: 'https://img.usecurling.com/p/400/300?q=family',
+      assignedPhotographerId: 'u1',
     },
     {
       id: 'p2',
@@ -153,6 +216,22 @@ let state: CrmState = {
       createdAt: '2024-02-20',
       progress: 20,
       imageUrl: 'https://img.usecurling.com/p/400/300?q=baby',
+      assignedPhotographerId: 'u2',
+    },
+    {
+      id: 'p3',
+      clientId: '1',
+      title: 'Parto Maria (Simulação Conflito)',
+      type: 'Parto',
+      status: 'Sobreaviso ativo',
+      date: nextWeek,
+      maternity: 'Hospital Santa Joana',
+      totalValue: 5000,
+      installments: [{ id: 'i4', amount: 5000, dueDate: nextWeek, paid: false }],
+      createdAt: '2024-03-20',
+      progress: 20,
+      assignedPhotographerId: 'u2',
+      // NO BACKUP
     },
   ],
   alerts: [
@@ -179,21 +258,25 @@ let state: CrmState = {
       id: 't1',
       name: 'Boas-vindas',
       body: 'Olá {client_name}! Seja muito bem-vinda(o) à nossa família. Estamos muito felizes em ter você conosco.',
+      category: 'Onboarding',
     },
     {
       id: 't2',
       name: 'Lembrete de Ensaio',
       body: 'Oi {client_name}, passando para lembrar do nosso ensaio de {shoot_type} programado para o dia {event_date}.',
+      category: 'Lembretes',
     },
     {
       id: 't3',
       name: 'Feliz Aniversário (Bebê)',
       body: 'Parabéns {baby_name} pelo seu aniversário! 🎉 Um abraço especial para toda a família.',
+      category: 'Relacionamento',
     },
     {
       id: 't4',
       name: 'Reativar Cliente (Anual)',
       body: 'Oi {client_name}, já faz um tempo desde nosso último encontro! Que tal atualizarmos as fotos da família?',
+      category: 'Vendas',
     },
   ],
 }
@@ -212,13 +295,43 @@ function setState(newState: Partial<CrmState>) {
 }
 
 export const crmActions = {
+  updateTenant: (updates: Partial<Tenant>) => {
+    setState({ tenant: { ...state.tenant, ...updates } })
+  },
+  setCurrentUser: (userId: string) => {
+    const user = state.users.find((u) => u.id === userId)
+    if (user) setState({ currentUser: user })
+  },
+  addUser: (user: Omit<User, 'id'>) => {
+    setState({
+      users: [...state.users, { ...user, id: Math.random().toString(36).substr(2, 9) }],
+    })
+  },
+  updateUser: (id: string, updates: Partial<User>) => {
+    setState({ users: state.users.map((u) => (u.id === id ? { ...u, ...updates } : u)) })
+  },
   addClient: (client: Omit<Client, 'id' | 'createdAt'>) => {
     const newClient = {
       ...client,
       id: Math.random().toString(36).substr(2, 9),
       createdAt: new Date().toISOString(),
     }
-    setState({ clients: [...state.clients, newClient] })
+
+    const newAlerts = [...state.alerts]
+    client.children.forEach((child) => {
+      if (child.birthDate) {
+        newAlerts.push({
+          id: Math.random().toString(36).substr(2, 9),
+          clientId: newClient.id,
+          type: 'Birthday',
+          title: `Aniversário de ${child.name}`,
+          dueDate: child.birthDate,
+          status: 'Pending',
+        })
+      }
+    })
+
+    setState({ clients: [...state.clients, newClient], alerts: newAlerts })
     return newClient
   },
   softDeleteClient: (id: string) => {
@@ -237,6 +350,9 @@ export const crmActions = {
       ],
     })
   },
+  updateProject: (id: string, updates: Partial<Project>) => {
+    setState({ projects: state.projects.map((p) => (p.id === id ? { ...p, ...updates } : p)) })
+  },
   updateProjectStatus: (id: string, status: ProjectStatus) => {
     setState({ projects: state.projects.map((p) => (p.id === id ? { ...p, status } : p)) })
   },
@@ -249,19 +365,19 @@ export const crmActions = {
   registerBirth: (projectId: string, birthDate: string) => {
     const parto = state.projects.find((p) => p.id === projectId)
     if (parto) {
+      const newbornDate = new Date(new Date(birthDate).getTime() + 10 * 24 * 60 * 60 * 1000)
       const newborn: Project = {
         id: Math.random().toString(36).substr(2, 9),
         clientId: parto.clientId,
         title: `Newborn - Filho(a) de ${state.clients.find((c) => c.id === parto.clientId)?.name}`,
         type: 'Newborn',
         status: 'Sessão agendada',
-        date: new Date(new Date(birthDate).getTime() + 10 * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .split('T')[0],
+        date: newbornDate.toISOString().split('T')[0],
         totalValue: 0,
         installments: [],
         createdAt: new Date().toISOString(),
         progress: 0,
+        assignedPhotographerId: parto.assignedPhotographerId,
       }
       setState({
         projects: [

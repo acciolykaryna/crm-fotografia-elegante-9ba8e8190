@@ -7,9 +7,12 @@ import useCrmStore from '@/stores/useCrmStore'
 
 export default function CalendarPage() {
   const [date, setDate] = useState<Date | undefined>(new Date())
-  const { projects, clients } = useCrmStore()
+  const { projects, clients, users, currentUser } = useCrmStore()
 
-  const activeProjects = projects.filter((p) => !p.deleted && p.date)
+  const isAdmin = currentUser.role === 'admin'
+  const activeProjects = projects
+    .filter((p) => !p.deleted && p.date)
+    .filter((p) => isAdmin || p.assignedPhotographerId === currentUser.id)
 
   const selectedDateEvents = activeProjects.filter((p) => {
     if (!p.date || !date) return false
@@ -66,15 +69,17 @@ export default function CalendarPage() {
             {selectedDateEvents.length > 0 ? (
               selectedDateEvents.map((event) => {
                 const client = clients.find((c) => c.id === event.clientId)
+                const photoColor =
+                  users.find((u) => u.id === event.assignedPhotographerId)?.color ||
+                  (event.type === 'Parto' ? '#f43f5e' : '#6366f1')
+
                 return (
                   <Card
                     key={event.id}
                     className="border-border/60 hover:border-primary/30 transition-colors shadow-sm overflow-hidden"
                   >
                     <div className="flex">
-                      <div
-                        className={`w-2 ${event.type === 'Parto' ? 'bg-rose-500' : 'bg-indigo-500'}`}
-                      ></div>
+                      <div className="w-2" style={{ backgroundColor: photoColor }}></div>
                       <CardContent className="p-5 flex-1">
                         <div className="flex items-start justify-between gap-4">
                           <div>

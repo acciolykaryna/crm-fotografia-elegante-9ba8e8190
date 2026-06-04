@@ -16,13 +16,20 @@ import useCrmStore, { crmActions, Project } from '@/stores/useCrmStore'
 import { SendMessageDialog } from '@/components/SendMessageDialog'
 
 export default function OnCall() {
-  const { projects, clients } = useCrmStore()
+  const { projects, clients, users, currentUser } = useCrmStore()
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const [messageProject, setMessageProject] = useState<Project | null>(null)
 
+  const isAdmin = currentUser.role === 'admin'
+
   const onCallProjects = projects
     .filter((p) => !p.deleted && p.type === 'Parto' && p.status === 'Sobreaviso ativo')
+    .filter((p) => isAdmin || p.assignedPhotographerId === currentUser.id)
     .sort((a, b) => new Date(a.date || '').getTime() - new Date(b.date || '').getTime())
+
+  const handleAssignBackup = (projectId: string, backupId: string) => {
+    crmActions.updateProject(projectId, { backupPhotographerId: backupId })
+  }
 
   const getGestationalWeek = (dpp?: string) => {
     if (!dpp) return 0
@@ -67,11 +74,33 @@ export default function OnCall() {
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h3 className="font-serif text-xl font-bold">{client?.name}</h3>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-muted-foreground mb-2">
                         DPP:{' '}
                         {project.date ? new Date(project.date).toLocaleDateString('pt-BR') : '--'} •{' '}
                         {project.maternity || 'Maternidade não definida'}
                       </p>
+                      {isAdmin && (
+                        <div className="flex items-center gap-2 mt-2 bg-secondary/30 p-2 rounded-md w-fit text-sm">
+                          <span className="text-muted-foreground">Titular:</span>
+                          <span className="font-medium">
+                            {users.find((u) => u.id === project.assignedPhotographerId)?.name ||
+                              'Não definido'}
+                          </span>
+                          <span className="text-muted-foreground ml-2">Backup:</span>
+                          <select
+                            className="bg-transparent border-b border-border text-sm font-medium focus:outline-none"
+                            value={project.backupPhotographerId || ''}
+                            onChange={(e) => handleAssignBackup(project.id, e.target.value)}
+                          >
+                            <option value="">Selecione...</option>
+                            {users.map((u) => (
+                              <option key={u.id} value={u.id}>
+                                {u.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                     </div>
                     <Badge
                       variant="secondary"

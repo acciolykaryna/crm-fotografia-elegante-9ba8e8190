@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -10,7 +10,16 @@ import CalendarPage from './pages/Calendar'
 import Alerts from './pages/Alerts'
 import OnCall from './pages/OnCall'
 import Templates from './pages/Templates'
+import Team from './pages/Team'
+import Onboarding from './pages/Onboarding'
 import NotFound from './pages/NotFound'
+import useCrmStore from '@/stores/useCrmStore'
+
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { tenant } = useCrmStore()
+  if (!tenant.isOnboarded) return <Navigate to="/onboarding" replace />
+  return <>{children}</>
+}
 
 const App = () => (
   <BrowserRouter future={{ v7_startTransition: false, v7_relativeSplatPath: false }}>
@@ -18,7 +27,14 @@ const App = () => (
       <Toaster />
       <Sonner />
       <Routes>
-        <Route element={<Layout />}>
+        <Route path="/onboarding" element={<Onboarding />} />
+        <Route
+          element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }
+        >
           <Route path="/" element={<Index />} />
           <Route path="/clientes" element={<Clients />} />
           <Route path="/projetos" element={<Projects />} />
@@ -26,6 +42,7 @@ const App = () => (
           <Route path="/sobreaviso" element={<OnCall />} />
           <Route path="/alertas" element={<Alerts />} />
           <Route path="/templates" element={<Templates />} />
+          <Route path="/equipe" element={<Team />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>
