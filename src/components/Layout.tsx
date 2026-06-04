@@ -10,7 +10,7 @@ import {
   SidebarTrigger,
   SidebarFooter,
 } from '@/components/ui/sidebar'
-import { Home, Users, Calendar, Image as ImageIcon, Zap, Search, Bell } from 'lucide-react'
+import { Home, Users, Calendar, Image as ImageIcon, Search, Bell, Baby } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -18,9 +18,10 @@ import { Button } from '@/components/ui/button'
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
   { name: 'Clientes', href: '/clientes', icon: Users },
+  { name: 'Ensaios e Projetos', href: '/projetos', icon: ImageIcon },
+  { name: 'Sobreaviso', href: '/sobreaviso', icon: Baby },
   { name: 'Calendário', href: '/calendario', icon: Calendar },
-  { name: 'Projetos', href: '/projetos', icon: ImageIcon },
-  { name: 'Automações', href: '/automacoes', icon: Zap },
+  { name: 'Alertas', href: '/alertas', icon: Bell },
 ]
 
 export default function Layout() {
@@ -78,9 +79,11 @@ export default function Layout() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="relative rounded-full">
-              <Bell className="h-5 w-5 text-muted-foreground" />
-              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary ring-2 ring-background"></span>
+            <Button variant="ghost" size="icon" className="relative rounded-full" asChild>
+              <Link to="/alertas">
+                <Bell className="h-5 w-5 text-muted-foreground" />
+                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary ring-2 ring-background"></span>
+              </Link>
             </Button>
           </div>
         </header>

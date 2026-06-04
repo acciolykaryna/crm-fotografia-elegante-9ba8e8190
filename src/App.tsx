@@ -7,7 +7,8 @@ import Index from './pages/Index'
 import Clients from './pages/Clients'
 import Projects from './pages/Projects'
 import CalendarPage from './pages/Calendar'
-import Automations from './pages/Automations'
+import Alerts from './pages/Alerts'
+import OnCall from './pages/OnCall'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -21,7 +22,8 @@ const App = () => (
           <Route path="/clientes" element={<Clients />} />
           <Route path="/projetos" element={<Projects />} />
           <Route path="/calendario" element={<CalendarPage />} />
-          <Route path="/automacoes" element={<Automations />} />
+          <Route path="/sobreaviso" element={<OnCall />} />
+          <Route path="/alertas" element={<Alerts />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>

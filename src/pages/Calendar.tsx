@@ -1,25 +1,31 @@
 import { useState } from 'react'
 import { Calendar as CalendarComponent } from '@/components/ui/calendar'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Clock, MapPin, Video } from 'lucide-react'
+import { Baby, Image as ImageIcon } from 'lucide-react'
 import useCrmStore from '@/stores/useCrmStore'
 
 export default function CalendarPage() {
   const [date, setDate] = useState<Date | undefined>(new Date())
-  const { projects } = useCrmStore()
+  const { projects, clients } = useCrmStore()
 
-  const selectedDateEvents = projects.filter((p) => {
+  const activeProjects = projects.filter((p) => !p.deleted && p.date)
+
+  const selectedDateEvents = activeProjects.filter((p) => {
     if (!p.date || !date) return false
-    const pDate = new Date(p.date)
-    return pDate.toDateString() === date.toDateString()
+    return new Date(p.date).toDateString() === date.toDateString()
   })
 
+  const sessionDates = activeProjects
+    .filter((p) => p.type !== 'Parto')
+    .map((p) => new Date(p.date!))
+  const onCallDates = activeProjects.filter((p) => p.type === 'Parto').map((p) => new Date(p.date!))
+
   return (
-    <div className="page-container space-y-6">
+    <div className="page-container space-y-6 p-6">
       <div>
         <h1 className="text-3xl font-serif font-bold text-foreground">Calendário</h1>
-        <p className="text-muted-foreground mt-1">Organize seu tempo e compromissos.</p>
+        <p className="text-muted-foreground mt-1">Visão geral de ensaios e partos agendados.</p>
       </div>
 
       <div className="grid lg:grid-cols-[auto_1fr] gap-8 items-start">
@@ -29,12 +35,23 @@ export default function CalendarPage() {
             selected={date}
             onSelect={setDate}
             className="rounded-md"
-            classNames={{
-              day_selected:
-                'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground',
-              day_today: 'bg-secondary text-secondary-foreground',
+            modifiers={{
+              session: sessionDates,
+              oncall: onCallDates,
+            }}
+            modifiersClassNames={{
+              session: 'bg-indigo-100 text-indigo-900 font-bold',
+              oncall: 'bg-rose-100 text-rose-900 font-bold',
             }}
           />
+          <div className="flex gap-4 px-4 pb-4 mt-2 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-indigo-500" /> Sessões
+            </span>
+            <span className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-rose-500" /> DPP (Partos)
+            </span>
+          </div>
         </Card>
 
         <div className="space-y-4">
@@ -47,40 +64,47 @@ export default function CalendarPage() {
 
           <div className="space-y-4">
             {selectedDateEvents.length > 0 ? (
-              selectedDateEvents.map((event) => (
-                <Card
-                  key={event.id}
-                  className="border-border/60 hover:border-primary/30 transition-colors shadow-sm overflow-hidden"
-                >
-                  <div className="flex">
-                    <div className="w-2 bg-primary"></div>
-                    <CardContent className="p-5 flex-1">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <Badge variant="outline" className="mb-2 bg-secondary/50 font-normal">
-                            {event.type}
-                          </Badge>
-                          <h4 className="text-lg font-semibold">{event.title}</h4>
-                          <div className="flex flex-wrap gap-4 mt-3 text-sm text-muted-foreground">
-                            <span className="flex items-center gap-1.5">
-                              <Clock className="h-4 w-4" /> 14:00 - 17:00
-                            </span>
-                            <span className="flex items-center gap-1.5">
-                              <MapPin className="h-4 w-4" /> Estúdio Principal
-                            </span>
+              selectedDateEvents.map((event) => {
+                const client = clients.find((c) => c.id === event.clientId)
+                return (
+                  <Card
+                    key={event.id}
+                    className="border-border/60 hover:border-primary/30 transition-colors shadow-sm overflow-hidden"
+                  >
+                    <div className="flex">
+                      <div
+                        className={`w-2 ${event.type === 'Parto' ? 'bg-rose-500' : 'bg-indigo-500'}`}
+                      ></div>
+                      <CardContent className="p-5 flex-1">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <Badge variant="outline" className="mb-2 bg-secondary/50 font-normal">
+                              {event.type}
+                            </Badge>
+                            <h4 className="text-lg font-semibold">{event.title}</h4>
+                            <div className="flex flex-wrap gap-4 mt-3 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1.5">
+                                {event.type === 'Parto' ? (
+                                  <Baby className="h-4 w-4" />
+                                ) : (
+                                  <ImageIcon className="h-4 w-4" />
+                                )}
+                                {client?.name}
+                              </span>
+                            </div>
                           </div>
+                          <Badge className="bg-secondary text-secondary-foreground hover:bg-secondary border-none">
+                            {event.status}
+                          </Badge>
                         </div>
-                        <Badge className="bg-secondary text-secondary-foreground hover:bg-secondary border-none">
-                          {event.status}
-                        </Badge>
-                      </div>
-                    </CardContent>
-                  </div>
-                </Card>
-              ))
+                      </CardContent>
+                    </div>
+                  </Card>
+                )
+              })
             ) : (
               <div className="text-center p-12 bg-secondary/20 rounded-xl border border-dashed border-border/60">
-                <p className="text-muted-foreground">Nenhum ensaio agendado para este dia.</p>
+                <p className="text-muted-foreground">Nenhum ensaio ou DPP para este dia.</p>
               </div>
             )}
           </div>

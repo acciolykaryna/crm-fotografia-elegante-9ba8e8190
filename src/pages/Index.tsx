@@ -1,45 +1,48 @@
 import { Link } from 'react-router-dom'
-import { Calendar, Users, DollarSign, Gift, ArrowRight } from 'lucide-react'
+import { Calendar, DollarSign, Baby, ArrowRight, AlertCircle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import useCrmStore from '@/stores/useCrmStore'
 
 export default function Index() {
-  const { projects, clients } = useCrmStore()
+  const { projects, clients, alerts } = useCrmStore()
 
-  const nextShoots = projects.filter((p) => p.status === 'Agendado').slice(0, 4)
-  const activeLeads = projects.filter((p) => p.status === 'Lead').length
+  const currentMonthStr = new Date().toISOString().slice(0, 7)
+  let receivedThisMonth = 0
+  let expectedThisMonth = 0
+  let overdueTotal = 0
+
+  projects
+    .filter((p) => !p.deleted)
+    .forEach((p) => {
+      p.installments.forEach((inst) => {
+        if (inst.paid && inst.dueDate.startsWith(currentMonthStr)) {
+          receivedThisMonth += inst.amount
+        }
+        if (!inst.paid) {
+          if (inst.dueDate.startsWith(currentMonthStr)) expectedThisMonth += inst.amount
+          if (new Date(inst.dueDate) < new Date(new Date().toISOString().split('T')[0]))
+            overdueTotal += inst.amount
+        }
+      })
+    })
+
+  const activeOnCalls = projects.filter((p) => !p.deleted && p.status === 'Sobreaviso ativo')
+  const pendingAlerts = alerts.filter((a) => a.status === 'Pending').slice(0, 5)
 
   const metrics = [
-    { title: 'Próximos Ensaios', value: nextShoots.length.toString(), icon: Calendar },
-    { title: 'Leads Ativos', value: activeLeads.toString(), icon: Users },
-    { title: 'Receita Mensal', value: 'R$ 8.450', icon: DollarSign },
-    { title: 'Datas Especiais Hoje', value: '2', icon: Gift },
-  ]
-
-  const recentActivities = [
     {
-      id: 1,
-      text: 'Maria Silva completou 1 ano de casada.',
-      time: 'Há 2 horas',
-      action: 'Enviar mensagem',
+      title: 'Receita Mês (Recebida)',
+      value: `R$ ${receivedThisMonth.toLocaleString()}`,
+      icon: DollarSign,
     },
-    {
-      id: 2,
-      text: 'Novo lead recebido: Formatura de Ana.',
-      time: 'Há 4 horas',
-      action: 'Ver lead',
-    },
-    {
-      id: 3,
-      text: 'Ensaio de João Santos marcado como entregue.',
-      time: 'Ontem',
-      action: 'Solicitar review',
-    },
+    { title: 'A Receber (Mês)', value: `R$ ${expectedThisMonth.toLocaleString()}`, icon: Calendar },
+    { title: 'Total em Atraso', value: `R$ ${overdueTotal.toLocaleString()}`, icon: AlertCircle },
+    { title: 'Partos em Sobreaviso', value: activeOnCalls.length.toString(), icon: Baby },
   ]
 
   return (
-    <div className="page-container space-y-8">
+    <div className="page-container space-y-8 p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-serif font-bold text-foreground">Bom dia, Studio</h1>
@@ -72,35 +75,31 @@ export default function Index() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="border-border/60 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="font-serif text-xl">Agenda Próxima</CardTitle>
+            <CardTitle className="font-serif text-xl">Sobreaviso Ativo</CardTitle>
             <Button variant="ghost" size="sm" asChild className="text-muted-foreground">
-              <Link to="/calendario" className="flex items-center gap-1">
+              <Link to="/sobreaviso" className="flex items-center gap-1">
                 Ver todos <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
           </CardHeader>
           <CardContent className="space-y-6">
-            {nextShoots.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum ensaio agendado.</p>
+            {activeOnCalls.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nenhum parto em sobreaviso no momento.
+              </p>
             ) : (
-              nextShoots.map((shoot) => {
+              activeOnCalls.map((shoot) => {
                 const client = clients.find((c) => c.id === shoot.clientId)
                 return (
                   <div key={shoot.id} className="flex items-center gap-4 group">
                     <div className="h-12 w-12 rounded-lg bg-secondary/50 flex flex-col items-center justify-center text-primary shrink-0 border border-border/50 transition-colors group-hover:bg-primary/10">
-                      <span className="text-xs font-semibold">
-                        {shoot.date?.split('-')[2] || '--'}
-                      </span>
-                      <span className="text-[10px] uppercase opacity-70">
-                        {shoot.date
-                          ? new Date(shoot.date).toLocaleString('pt-BR', { month: 'short' })
-                          : 'Mês'}
-                      </span>
+                      <Baby className="h-5 w-5" />
                     </div>
                     <div className="flex-1 space-y-1">
                       <p className="text-sm font-medium leading-none">{shoot.title}</p>
                       <p className="text-sm text-muted-foreground">
-                        {client?.name} • {shoot.type}
+                        {client?.name} • DPP:{' '}
+                        {shoot.date ? new Date(shoot.date).toLocaleDateString('pt-BR') : '--'}
                       </p>
                     </div>
                   </div>
@@ -111,30 +110,35 @@ export default function Index() {
         </Card>
 
         <Card className="border-border/60 shadow-sm bg-[#fafaf8]">
-          <CardHeader>
-            <CardTitle className="font-serif text-xl text-foreground">
-              Oportunidades de Automação
-            </CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="font-serif text-xl text-foreground">Próximos Alertas</CardTitle>
+            <Button variant="ghost" size="sm" asChild className="text-muted-foreground">
+              <Link to="/alertas" className="flex items-center gap-1">
+                Ver todos <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
           </CardHeader>
           <CardContent className="space-y-6">
-            {recentActivities.map((activity) => (
-              <div
-                key={activity.id}
-                className="relative flex gap-4 pl-4 before:absolute before:left-[7px] before:top-2 before:bottom-[-24px] before:w-[2px] before:bg-border last:before:hidden"
-              >
-                <div className="absolute left-0 top-1.5 h-4 w-4 rounded-full border-2 border-background bg-primary" />
-                <div className="flex-1 space-y-1">
-                  <p className="text-sm text-foreground">{activity.text}</p>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">{activity.time}</span>
-                    <span className="text-xs text-border">•</span>
-                    <button className="text-xs font-medium text-primary hover:underline">
-                      {activity.action}
-                    </button>
+            {pendingAlerts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum alerta pendente.</p>
+            ) : (
+              pendingAlerts.map((alert) => (
+                <div
+                  key={alert.id}
+                  className="relative flex gap-4 pl-4 before:absolute before:left-[7px] before:top-2 before:bottom-[-24px] before:w-[2px] before:bg-border last:before:hidden"
+                >
+                  <div className="absolute left-0 top-1.5 h-4 w-4 rounded-full border-2 border-background bg-primary" />
+                  <div className="flex-1 space-y-1">
+                    <p className="text-sm text-foreground">{alert.title}</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(alert.dueDate).toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </CardContent>
         </Card>
       </div>
