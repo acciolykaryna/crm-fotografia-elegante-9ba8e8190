@@ -75,13 +75,40 @@ export default function Onboarding() {
 
         if (profileError) throw profileError
 
+        // Process emails for invitations
+        if (emails.trim()) {
+          const emailList = emails
+            .split(',')
+            .map((e) => e.trim())
+            .filter((e) => e.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/))
+
+          if (emailList.length > 0) {
+            const { error: inviteError } = await supabase.from('invitations').insert(
+              emailList.map((email) => ({
+                tenant_id: tenantData.id,
+                email,
+                role: 'member',
+                status: 'pending',
+              })),
+            )
+            if (inviteError) {
+              console.error('Error saving invitations:', inviteError)
+              toast({
+                title: 'Aviso',
+                description: 'O estúdio foi criado, mas houve um erro ao enviar os convites.',
+                variant: 'destructive',
+              })
+            }
+          }
+        }
+
         window.location.href = '/'
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving onboarding data:', error)
       toast({
-        title: 'Erro',
-        description: 'Erro ao salvar configurações. Por favor, tente novamente.',
+        title: 'Erro ao configurar estúdio',
+        description: error.message || 'Verifique sua conexão e tente novamente.',
         variant: 'destructive',
       })
     } finally {

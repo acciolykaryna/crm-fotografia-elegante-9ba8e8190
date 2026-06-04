@@ -92,6 +92,41 @@ export type Database = {
           },
         ]
       }
+      invitations: {
+        Row: {
+          id: string
+          tenant_id: string
+          email: string
+          role: string
+          status: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          email: string
+          role?: string
+          status?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          email?: string
+          role?: string
+          status?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'invitations_tenant_id_fkey'
+            columns: ['tenant_id']
+            isOneToOne: false
+            referencedRelation: 'tenants'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       message_templates: {
         Row: {
           content: string
@@ -441,6 +476,13 @@ export const Constants = {
 //   phone: text (nullable)
 //   birthday: date (nullable)
 //   created_at: timestamp with time zone (not null, default: now())
+// Table: invitations
+//   id: uuid (not null, default: gen_random_uuid())
+//   tenant_id: uuid (not null)
+//   email: text (not null)
+//   role: text (not null, default: 'member')
+//   status: text (not null, default: 'pending')
+//   created_at: timestamp with time zone (not null, default: now())
 // Table: message_templates
 //   id: uuid (not null, default: gen_random_uuid())
 //   tenant_id: uuid (not null, default: get_user_tenant_id())
@@ -485,6 +527,9 @@ export const Constants = {
 // Table: clients
 //   PRIMARY KEY clients_pkey: PRIMARY KEY (id)
 //   FOREIGN KEY clients_tenant_id_fkey: FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+// Table: invitations
+//   PRIMARY KEY invitations_pkey: PRIMARY KEY (id)
+//   FOREIGN KEY invitations_tenant_id_fkey: FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 // Table: message_templates
 //   PRIMARY KEY message_templates_pkey: PRIMARY KEY (id)
 //   FOREIGN KEY message_templates_tenant_id_fkey: FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
@@ -514,6 +559,10 @@ export const Constants = {
 //   Policy "tenant_isolation" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: (tenant_id = get_user_tenant_id())
 //     WITH CHECK: (tenant_id = get_user_tenant_id())
+// Table: invitations
+//   Policy "admin_all_invitations" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: ((tenant_id = get_user_tenant_id()) AND (get_user_role() = 'admin'::text))
+//     WITH CHECK: ((tenant_id = get_user_tenant_id()) AND (get_user_role() = 'admin'::text))
 // Table: message_templates
 //   Policy "tenant_isolation" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: (tenant_id = get_user_tenant_id())
