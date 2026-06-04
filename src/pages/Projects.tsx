@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
-import { Calendar as CalendarIcon, CheckCircle2, Plus, Filter } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Calendar as CalendarIcon, Plus } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import {
   Select,
@@ -20,8 +21,12 @@ import {
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import useCrmStore, { crmActions, ProjectStatus, ServiceType } from '@/stores/useCrmStore'
+import useCrmStore, { ServiceType } from '@/stores/useCrmStore'
 import { useToast } from '@/hooks/use-toast'
+import { supabase } from '@/lib/supabase/client'
+import { useAuth } from '@/hooks/use-auth'
+
+type ProjectStatus = string
 
 const KANBAN_COLUMNS: { id: ProjectStatus; title: string; color: string }[] = [
   { id: 'Lead', title: 'Lead', color: 'bg-slate-100 text-slate-700' },
@@ -37,18 +42,73 @@ const KANBAN_COLUMNS: { id: ProjectStatus; title: string; color: string }[] = [
 ]
 
 export default function Projects() {
-  const { projects, clients, users, currentUser, tenant } = useCrmStore()
+  const { tenant } = useCrmStore()
+  const { user, profile } = useAuth()
   const { toast } = useToast()
+
   const [open, setOpen] = useState(false)
   const [type, setType] = useState<ServiceType>('Família')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const [dbClients, setDbClients] = useState<any[]>([])
+  const [dbProjects, setDbProjects] = useState<any[]>([])
+  const [dbProfiles, setDbProfiles] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   // Filters
   const [filterPhotographer, setFilterPhotographer] = useState<string>('all')
   const [filterService, setFilterService] = useState<string>('all')
 
-  const handleStatusChange = (projectId: string, newStatus: ProjectStatus) => {
-    crmActions.updateProjectStatus(projectId, newStatus)
-    if (newStatus === 'Galeria entregue' || newStatus === 'Concluído') {
+  const isAdmin = profile?.role === 'admin'
+
+  const fetchData = async () => {
+    if (!profile?.tenant_id) {
+      setIsLoading(false)
+      return
+    }
+
+    try {
+      const [clientsRes, projectsRes, profilesRes] = await Promise.all([
+        supabase.from('clients').select('id, name').order('name'),
+        supabase
+          .from('projects')
+          .select('*, client:clients(name), photographer:profiles(full_name, avatar_url)'),
+        supabase.from('profiles').select('id, full_name, avatar_url'),
+      ])
+
+      if (clientsRes.error) throw clientsRes.error
+      if (projectsRes.error) throw projectsRes.error
+      if (profilesRes.error) throw profilesRes.error
+
+      setDbClients(clientsRes.data || [])
+      setDbProjects(projectsRes.data || [])
+      setDbProfiles(profilesRes.data || [])
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao carregar dados',
+        description: err.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchData()
+  }, [profile?.tenant_id])
+
+  const handleStatusChange = async (projectId: string, newStatus: string) => {
+    setDbProjects((prev) => prev.map((p) => (p.id === projectId ? { ...p, status: newStatus } : p)))
+    const { error } = await supabase
+      .from('projects')
+      .update({ status: newStatus })
+      .eq('id', projectId)
+
+    if (error) {
+      toast({ title: 'Erro ao atualizar', description: error.message, variant: 'destructive' })
+      fetchData()
+    } else if (newStatus === 'Galeria entregue' || newStatus === 'Concluído') {
       toast({
         title: 'Trabalho Entregue/Concluído!',
         description: 'Lembre-se de enviar o link para feedback (NPS).',
@@ -56,56 +116,79 @@ export default function Projects() {
     }
   }
 
-  const handleAddProject = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddProject = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    setIsSubmitting(true)
     const formData = new FormData(e.currentTarget)
     const totalValue = Number(formData.get('total'))
     const entryAmount = Number(formData.get('entry'))
     const date = formData.get('date') as string
     const assignedId = formData.get('assignedPhotographerId') as string
+    const clientId = formData.get('clientId') as string
+    const title = formData.get('title') as string
 
-    crmActions.addProject({
-      clientId: formData.get('clientId') as string,
-      title: formData.get('title') as string,
-      type,
-      status: 'Lead',
-      date,
-      totalValue,
-      assignedPhotographerId: assignedId || currentUser.id,
-      installments: [
-        {
-          id: Math.random().toString(),
-          amount: entryAmount,
-          dueDate: new Date().toISOString().split('T')[0],
-          paid: false,
-        },
-        {
-          id: Math.random().toString(),
-          amount: totalValue - entryAmount,
-          dueDate: date || new Date().toISOString().split('T')[0],
-          paid: false,
-        },
-      ],
-    })
-    setOpen(false)
-    if (type === 'Parto') {
+    try {
+      const { data: project, error } = await supabase
+        .from('projects')
+        .insert({
+          client_id: clientId,
+          title,
+          type,
+          status: 'Lead',
+          date: date || null,
+          photographer_id: assignedId || user?.id,
+          total_value: totalValue,
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      if (project) {
+        await supabase.from('payments').insert([
+          {
+            project_id: project.id,
+            amount: entryAmount,
+            status: 'pending',
+            due_date: new Date().toISOString().split('T')[0],
+          },
+          {
+            project_id: project.id,
+            amount: totalValue - entryAmount,
+            status: 'pending',
+            due_date: date || null,
+          },
+        ])
+      }
+
+      toast({ title: 'Job criado com sucesso!' })
+      setOpen(false)
+      if (type === 'Parto') {
+        toast({
+          title: 'Lead de Parto criado',
+          description: 'O sobreaviso será ativado quando contratado.',
+        })
+      }
+      fetchData()
+    } catch (err: any) {
       toast({
-        title: 'Lead de Parto criado',
-        description: 'O sobreaviso será ativado quando contratado.',
+        title: 'Erro ao criar job',
+        description: err.message,
+        variant: 'destructive',
       })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
-  const isAdmin = currentUser.role === 'admin'
-
   const filteredProjects = useMemo(() => {
-    let list = projects.filter((p) => !p.deleted)
+    let list = dbProjects
 
     if (!isAdmin) {
-      list = list.filter((p) => p.assignedPhotographerId === currentUser.id)
+      list = list.filter((p) => p.photographer_id === user?.id)
     } else {
       if (filterPhotographer !== 'all') {
-        list = list.filter((p) => p.assignedPhotographerId === filterPhotographer)
+        list = list.filter((p) => p.photographer_id === filterPhotographer)
       }
     }
 
@@ -114,10 +197,10 @@ export default function Projects() {
     }
 
     return list
-  }, [projects, isAdmin, currentUser.id, filterPhotographer, filterService])
+  }, [dbProjects, isAdmin, user?.id, filterPhotographer, filterService])
 
   const projectsByColumn = useMemo(() => {
-    const map = new Map<ProjectStatus, typeof filteredProjects>()
+    const map = new Map<string, typeof filteredProjects>()
     KANBAN_COLUMNS.forEach((col) => map.set(col.id, []))
     filteredProjects.forEach((p) => {
       if (map.has(p.status)) map.get(p.status)!.push(p)
@@ -141,9 +224,9 @@ export default function Projects() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos Equipe</SelectItem>
-                {users.map((u) => (
+                {dbProfiles.map((u) => (
                   <SelectItem key={u.id} value={u.id}>
-                    {u.name}
+                    {u.full_name || 'Usuário'}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -178,20 +261,31 @@ export default function Projects() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Cliente</Label>
-                    <Select name="clientId" required>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {clients
-                          .filter((c) => !c.deleted)
-                          .map((c) => (
+                    {!profile?.tenant_id ? (
+                      <div className="text-sm text-destructive">
+                        Configure seu estúdio primeiro.
+                      </div>
+                    ) : dbClients.length === 0 ? (
+                      <div className="text-sm text-muted-foreground mb-2 flex items-center justify-between">
+                        Nenhum cliente encontrado.
+                        <Button asChild variant="link" className="p-0 h-auto">
+                          <Link to="/clientes">Criar cliente</Link>
+                        </Button>
+                      </div>
+                    ) : (
+                      <Select name="clientId" required>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {dbClients.map((c) => (
                             <SelectItem key={c.id} value={c.id}>
                               {c.name}
                             </SelectItem>
                           ))}
-                      </SelectContent>
-                    </Select>
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label>Tipo de Serviço</Label>
@@ -221,18 +315,16 @@ export default function Projects() {
                   {isAdmin && (
                     <div className="space-y-2">
                       <Label>Fotógrafo Principal</Label>
-                      <Select name="assignedPhotographerId" defaultValue={currentUser.id}>
+                      <Select name="assignedPhotographerId" defaultValue={user?.id}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {users
-                            .filter((u) => u.active)
-                            .map((u) => (
-                              <SelectItem key={u.id} value={u.id}>
-                                {u.name}
-                              </SelectItem>
-                            ))}
+                          {dbProfiles.map((u) => (
+                            <SelectItem key={u.id} value={u.id}>
+                              {u.full_name || 'Usuário'}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -249,8 +341,12 @@ export default function Projects() {
                   </div>
                 </div>
                 <DialogFooter className="pt-4">
-                  <Button type="submit" className="w-full">
-                    Criar Job
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={isSubmitting || !profile?.tenant_id || dbClients.length === 0}
+                  >
+                    {isSubmitting ? 'Criando...' : 'Criar Job'}
                   </Button>
                 </DialogFooter>
               </form>
@@ -287,8 +383,9 @@ export default function Projects() {
                 </div>
                 <div className="p-3 flex-1 overflow-y-auto space-y-3">
                   {colsProjects.map((project) => {
-                    const client = clients.find((c) => c.id === project.clientId)
-                    const assignedPhoto = users.find((u) => u.id === project.assignedPhotographerId)
+                    const clientName = project.client?.name
+                    const assignedPhoto = project.photographer
+
                     return (
                       <div
                         key={project.id}
@@ -301,14 +398,14 @@ export default function Projects() {
                           </Badge>
                         </div>
                         <div className="flex items-center justify-between mb-3">
-                          <p className="text-xs text-muted-foreground">{client?.name}</p>
+                          <p className="text-xs text-muted-foreground">{clientName}</p>
                           {assignedPhoto && isAdmin && (
                             <Avatar
                               className="h-5 w-5 border border-border"
-                              title={assignedPhoto.name}
+                              title={assignedPhoto.full_name || ''}
                             >
-                              <AvatarImage src={assignedPhoto.avatar} />
-                              <AvatarFallback>{assignedPhoto.name[0]}</AvatarFallback>
+                              <AvatarImage src={assignedPhoto.avatar_url || ''} />
+                              <AvatarFallback>{assignedPhoto.full_name?.[0] || 'U'}</AvatarFallback>
                             </Avatar>
                           )}
                         </div>
@@ -316,13 +413,15 @@ export default function Projects() {
                         {project.date && (
                           <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3 bg-secondary/50 w-fit px-2 py-1 rounded-md">
                             <CalendarIcon className="h-3 w-3" />
-                            {new Date(project.date).toLocaleDateString('pt-BR')}
+                            {new Date(project.date).toLocaleDateString('pt-BR', {
+                              timeZone: 'UTC',
+                            })}
                           </div>
                         )}
 
                         <Select
                           value={project.status}
-                          onValueChange={(v) => handleStatusChange(project.id, v as ProjectStatus)}
+                          onValueChange={(v) => handleStatusChange(project.id, v)}
                         >
                           <SelectTrigger className="h-8 text-xs bg-transparent border-border/50">
                             <SelectValue />

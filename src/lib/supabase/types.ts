@@ -560,6 +560,8 @@ export const Constants = {
 //     USING: (tenant_id = get_user_tenant_id())
 //     WITH CHECK: (tenant_id = get_user_tenant_id())
 // Table: invitations
+//   Policy "Admins can insert invitations" (INSERT, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: ((tenant_id = get_user_tenant_id()) AND (get_user_role() = 'admin'::text))
 //   Policy "admin_all_invitations" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: ((tenant_id = get_user_tenant_id()) AND (get_user_role() = 'admin'::text))
 //     WITH CHECK: ((tenant_id = get_user_tenant_id()) AND (get_user_role() = 'admin'::text))
@@ -582,6 +584,10 @@ export const Constants = {
 //     USING: ((tenant_id = get_user_tenant_id()) AND ((get_user_role() = 'admin'::text) OR (photographer_id = auth.uid())))
 //     WITH CHECK: ((tenant_id = get_user_tenant_id()) AND ((get_user_role() = 'admin'::text) OR (photographer_id = auth.uid())))
 // Table: tenants
+//   Policy "Enable insert for authenticated users only" (INSERT, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: true
+//   Policy "Enable read for authenticated users" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
 //   Policy "Users can insert tenant" (INSERT, PERMISSIVE) roles={authenticated}
 //     WITH CHECK: true
 //   Policy "Users can update their own tenant" (UPDATE, PERMISSIVE) roles={authenticated}
