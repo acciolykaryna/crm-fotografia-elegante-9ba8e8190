@@ -1,20 +1,34 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Bell, CheckCircle2, Clock, MessageSquare } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import useCrmStore, { crmActions, Client, Alert } from '@/stores/useCrmStore'
+import { supabase } from '@/lib/supabase/client'
 import { SendMessageDialog } from '@/components/SendMessageDialog'
 
 export default function Alerts() {
-  const { alerts, clients, projects } = useCrmStore()
-  const [messageAlert, setMessageAlert] = useState<{ client: Client; alert: Alert } | null>(null)
+  const [alerts, setAlerts] = useState<any[]>([])
+  const [clients, setClients] = useState<any[]>([])
+  const [messageAlert, setMessageAlert] = useState<any | null>(null)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const [alertsRes, clientsRes] = await Promise.all([
+        supabase.from('alerts').select('*').eq('status', 'pending'),
+        supabase.from('clients').select('*'),
+      ])
+      if (alertsRes.data) setAlerts(alertsRes.data)
+      if (clientsRes.data) setClients(clientsRes.data)
+    }
+    fetchData()
+  }, [])
 
   const pendingAlerts = alerts
-    .filter((a) => a.status === 'Pending')
-    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+    .filter((a) => a.status === 'pending')
+    .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
 
-  const handleResolve = (id: string) => {
-    crmActions.resolveAlert(id, 'Completed')
+  const handleResolve = async (id: string) => {
+    await supabase.from('alerts').update({ status: 'done' }).eq('id', id)
+    setAlerts(alerts.filter((a) => a.id !== id))
   }
 
   return (
@@ -34,7 +48,7 @@ export default function Alerts() {
           </div>
         ) : (
           pendingAlerts.map((alert) => {
-            const client = clients.find((c) => c.id === alert.clientId)
+            const client = clients.find((c) => c.id === alert.client_id)
             return (
               <Card
                 key={alert.id}
@@ -46,10 +60,10 @@ export default function Alerts() {
                       <Clock className="h-5 w-5" />
                     </div>
                     <div>
-                      <h4 className="font-semibold text-base">{alert.title}</h4>
+                      <h4 className="font-semibold text-base">{alert.type}</h4>
                       <p className="text-sm text-muted-foreground">
                         {client?.name} • Vencimento:{' '}
-                        {new Date(alert.dueDate).toLocaleDateString('pt-BR')}
+                        {new Date(alert.due_date).toLocaleDateString('pt-BR')}
                       </p>
                     </div>
                   </div>
@@ -59,14 +73,13 @@ export default function Alerts() {
                         variant="outline"
                         size="sm"
                         className="flex-1 sm:flex-none gap-2 text-green-600 hover:text-green-700 hover:bg-green-50"
-                        onClick={() => setMessageAlert({ client, alert })}
+                        onClick={() =>
+                          setMessageAlert({ client: { ...client, whatsapp: client.phone }, alert })
+                        }
                       >
                         <MessageSquare className="h-4 w-4" /> Contatar
                       </Button>
                     )}
-                    <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
-                      Adiar
-                    </Button>
                     <Button
                       size="sm"
                       onClick={() => handleResolve(alert.id)}
@@ -84,13 +97,8 @@ export default function Alerts() {
       <SendMessageDialog
         client={messageAlert?.client || null}
         alert={messageAlert?.alert || null}
-        project={
-          messageAlert?.alert?.projectId
-            ? projects.find((p) => p.id === messageAlert.alert.projectId)
-            : null
-        }
         open={!!messageAlert}
-        onOpenChange={(o) => !o && setMessageAlert(null)}
+        onOpenChange={(o: boolean) => !o && setMessageAlert(null)}
       />
     </div>
   )

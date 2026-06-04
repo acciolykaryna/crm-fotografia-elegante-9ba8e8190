@@ -13,41 +13,57 @@ import Templates from './pages/Templates'
 import Team from './pages/Team'
 import Onboarding from './pages/Onboarding'
 import NotFound from './pages/NotFound'
-import useCrmStore from '@/stores/useCrmStore'
+import Login from './pages/Login'
+import { AuthProvider, useAuth } from '@/hooks/use-auth'
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { tenant } = useCrmStore()
-  if (!tenant.isOnboarded) return <Navigate to="/onboarding" replace />
+  const { user, profile, loading } = useAuth()
+
+  if (loading) return null
+  if (!user) return <Navigate to="/login" replace />
+  if (!profile?.tenant_id && window.location.pathname !== '/onboarding') {
+    return <Navigate to="/onboarding" replace />
+  }
   return <>{children}</>
 }
 
 const App = () => (
-  <BrowserRouter future={{ v7_startTransition: false, v7_relativeSplatPath: false }}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <Routes>
-        <Route path="/onboarding" element={<Onboarding />} />
-        <Route
-          element={
-            <ProtectedRoute>
-              <Layout />
-            </ProtectedRoute>
-          }
-        >
-          <Route path="/" element={<Index />} />
-          <Route path="/clientes" element={<Clients />} />
-          <Route path="/projetos" element={<Projects />} />
-          <Route path="/calendario" element={<CalendarPage />} />
-          <Route path="/sobreaviso" element={<OnCall />} />
-          <Route path="/alertas" element={<Alerts />} />
-          <Route path="/templates" element={<Templates />} />
-          <Route path="/equipe" element={<Team />} />
-        </Route>
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </TooltipProvider>
-  </BrowserRouter>
+  <AuthProvider>
+    <BrowserRouter future={{ v7_startTransition: false, v7_relativeSplatPath: false }}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/onboarding"
+            element={
+              <ProtectedRoute>
+                <Onboarding />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            element={
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/" element={<Index />} />
+            <Route path="/clientes" element={<Clients />} />
+            <Route path="/projetos" element={<Projects />} />
+            <Route path="/calendario" element={<CalendarPage />} />
+            <Route path="/sobreaviso" element={<OnCall />} />
+            <Route path="/alertas" element={<Alerts />} />
+            <Route path="/templates" element={<Templates />} />
+            <Route path="/equipe" element={<Team />} />
+          </Route>
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </TooltipProvider>
+    </BrowserRouter>
+  </AuthProvider>
 )
 
 export default App

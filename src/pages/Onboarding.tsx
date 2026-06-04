@@ -6,7 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import useCrmStore, { crmActions, ServiceType } from '@/stores/useCrmStore'
+import { useAuth } from '@/hooks/use-auth'
+import { supabase } from '@/lib/supabase/client'
+
+type ServiceType = 'Parto' | 'Gestante' | 'Newborn' | 'Família' | 'Corporativo' | 'Outro'
 
 const ALL_SERVICES: ServiceType[] = [
   'Parto',
@@ -19,25 +22,43 @@ const ALL_SERVICES: ServiceType[] = [
 
 export default function Onboarding() {
   const navigate = useNavigate()
-  const { tenant } = useCrmStore()
+  const { user } = useAuth()
   const [step, setStep] = useState(1)
+  const [loading, setLoading] = useState(false)
 
-  const [name, setName] = useState(tenant.name || '')
-  const [primaryColor, setPrimaryColor] = useState(tenant.primaryColor || '#D4AF37')
-  const [services, setServices] = useState<ServiceType[]>(tenant.services || ['Parto', 'Família'])
+  const [name, setName] = useState('')
+  const [primaryColor, setPrimaryColor] = useState('#D4AF37')
+  const [services, setServices] = useState<ServiceType[]>(['Parto', 'Família'])
   const [emails, setEmails] = useState('')
 
   const handleNext = () => setStep((s) => s + 1)
   const handlePrev = () => setStep((s) => s - 1)
 
-  const handleFinish = () => {
-    crmActions.updateTenant({
-      name,
-      primaryColor,
-      services,
-      isOnboarded: true,
-    })
-    navigate('/')
+  const handleFinish = async () => {
+    if (!user) return
+    setLoading(true)
+
+    const { data: tenantData } = await supabase
+      .from('tenants')
+      .insert({
+        name,
+        branding: { primaryColor, services },
+      })
+      .select()
+      .single()
+
+    if (tenantData) {
+      await supabase
+        .from('profiles')
+        .update({
+          tenant_id: tenantData.id,
+          role: 'admin',
+        })
+        .eq('id', user.id)
+
+      window.location.href = '/'
+    }
+    setLoading(false)
   }
 
   const toggleService = (srv: ServiceType) => {
@@ -147,7 +168,9 @@ export default function Onboarding() {
                 Continuar <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             ) : (
-              <Button onClick={handleFinish}>Finalizar Configuração</Button>
+              <Button onClick={handleFinish} disabled={loading}>
+                {loading ? 'Salvando...' : 'Finalizar Configuração'}
+              </Button>
             )}
           </div>
         </CardContent>

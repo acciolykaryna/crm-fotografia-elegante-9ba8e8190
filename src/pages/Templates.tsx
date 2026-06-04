@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { MessageSquare, Plus, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
   DialogContent,
@@ -13,57 +14,71 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import useCrmStore, { crmActions, MessageTemplate } from '@/stores/useCrmStore'
+import { supabase } from '@/lib/supabase/client'
 
 export default function Templates() {
-  const { templates } = useCrmStore()
+  const [templates, setTemplates] = useState<any[]>([])
   const { toast } = useToast()
 
   const [open, setOpen] = useState(false)
-  const [editingTemplate, setEditingTemplate] = useState<MessageTemplate | null>(null)
+  const [editingTemplate, setEditingTemplate] = useState<any | null>(null)
 
-  const [name, setName] = useState('')
-  const [body, setBody] = useState('')
-  const [category, setCategory] = useState('')
+  const [title, setTitle] = useState('')
+  const [content, setContent] = useState('')
+
+  const fetchTemplates = async () => {
+    const { data } = await supabase
+      .from('message_templates')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (data) setTemplates(data)
+  }
+
+  useEffect(() => {
+    fetchTemplates()
+  }, [])
 
   const handleOpenNew = () => {
     setEditingTemplate(null)
-    setName('')
-    setBody('')
-    setCategory('Lembretes')
+    setTitle('')
+    setContent('')
     setOpen(true)
   }
 
-  const handleOpenEdit = (t: MessageTemplate) => {
+  const handleOpenEdit = (t: any) => {
     setEditingTemplate(t)
-    setName(t.name)
-    setBody(t.body)
-    setCategory(t.category || 'Geral')
+    setTitle(t.title)
+    setContent(t.content)
     setOpen(true)
   }
 
-  const handleSave = () => {
-    if (!name.trim() || !body.trim()) return
+  const handleSave = async () => {
+    if (!title.trim() || !content.trim()) return
 
     if (editingTemplate) {
-      crmActions.updateTemplate(editingTemplate.id, { name, body, category })
+      await supabase
+        .from('message_templates')
+        .update({ title, content })
+        .eq('id', editingTemplate.id)
       toast({ title: 'Template atualizado com sucesso.' })
     } else {
-      crmActions.addTemplate({ name, body })
+      await supabase.from('message_templates').insert({ title, content })
       toast({ title: 'Template criado com sucesso.' })
     }
     setOpen(false)
+    fetchTemplates()
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Tem certeza que deseja excluir este template?')) {
-      crmActions.deleteTemplate(id)
+      await supabase.from('message_templates').delete().eq('id', id)
       toast({ title: 'Template excluído.', variant: 'destructive' })
+      fetchTemplates()
     }
   }
 
   const insertPlaceholder = (ph: string) => {
-    setBody((prev) => prev + ph)
+    setContent((prev) => prev + ph)
   }
 
   return (
@@ -90,16 +105,16 @@ export default function Templates() {
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <Badge variant="outline" className="mb-1 text-[10px]">
-                    {t.category || 'Geral'}
+                    Personalizado
                   </Badge>
-                  <CardTitle className="text-lg">{t.name}</CardTitle>
+                  <CardTitle className="text-lg">{t.title}</CardTitle>
                 </div>
                 <MessageSquare className="h-4 w-4 text-muted-foreground shrink-0" />
               </div>
             </CardHeader>
             <CardContent className="flex flex-col flex-1">
               <p className="text-sm text-muted-foreground line-clamp-4 flex-1 mb-4 whitespace-pre-wrap">
-                {t.body}
+                {t.content}
               </p>
               <div className="flex items-center gap-2 mt-auto pt-4 border-t border-border/50">
                 <Button
@@ -122,6 +137,11 @@ export default function Templates() {
             </CardContent>
           </Card>
         ))}
+        {templates.length === 0 && (
+          <div className="col-span-full text-center py-12 text-muted-foreground bg-secondary/20 rounded-xl border border-dashed border-border/60">
+            Nenhum template cadastrado ainda.
+          </div>
+        )}
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -135,8 +155,8 @@ export default function Templates() {
             <div className="space-y-2">
               <Label>Nome do Template</Label>
               <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
                 placeholder="Ex: Lembrete de Ensaio"
               />
             </div>
@@ -146,8 +166,8 @@ export default function Templates() {
                 <Label>Mensagem</Label>
               </div>
               <Textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
                 placeholder="Escreva sua mensagem aqui..."
                 className="min-h-[200px]"
               />
@@ -155,7 +175,7 @@ export default function Templates() {
                 <span className="text-xs text-muted-foreground w-full mb-1">
                   Variáveis disponíveis:
                 </span>
-                {['{client_name}', '{event_date}', '{baby_name}', '{shoot_type}'].map((ph) => (
+                {['{client_name}', '{event_date}', '{shoot_type}'].map((ph) => (
                   <Button
                     key={ph}
                     type="button"
