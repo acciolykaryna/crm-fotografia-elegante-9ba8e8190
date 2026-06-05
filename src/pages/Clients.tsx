@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Plus, Search, MoreHorizontal, Phone, Mail, MessageCircle } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,7 +24,6 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/lib/supabase/client'
-import { SendMessageDialog } from '@/components/SendMessageDialog'
 
 export default function Clients() {
   const { toast } = useToast()
@@ -31,7 +31,6 @@ export default function Clients() {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [selectedClient, setSelectedClient] = useState<any | null>(null)
-  const [isMessageOpen, setIsMessageOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
   const fetchClients = async () => {
@@ -220,11 +219,13 @@ export default function Clients() {
 
                 <div className="pt-6 border-t border-border">
                   <Button
+                    asChild
                     className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white"
-                    onClick={() => setIsMessageOpen(true)}
                   >
-                    <MessageCircle className="h-4 w-4" />
-                    Enviar Mensagem Rápida (WhatsApp)
+                    <Link to={`/comunicacao?client=${selectedClient.id}`}>
+                      <MessageCircle className="h-4 w-4" />
+                      Chat WhatsApp
+                    </Link>
                   </Button>
                 </div>
               </div>
@@ -232,12 +233,6 @@ export default function Clients() {
           )}
         </SheetContent>
       </Sheet>
-
-      <SendMessageDialog
-        client={selectedClient ? { ...selectedClient, whatsapp: selectedClient.phone } : null}
-        open={isMessageOpen}
-        onOpenChange={setIsMessageOpen}
-      />
     </div>
   )
 }

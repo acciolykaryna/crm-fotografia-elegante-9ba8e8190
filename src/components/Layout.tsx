@@ -20,6 +20,7 @@ import {
   Bell,
   Baby,
   MessageSquare,
+  MessageCircle,
   Settings,
   LogOut,
 } from 'lucide-react'
@@ -110,6 +111,7 @@ export default function Layout() {
   const navigation = [
     { name: 'Dashboard', href: '/', icon: Home, show: true },
     { name: 'Clientes', href: '/clientes', icon: Users, show: profile?.role === 'admin' },
+    { name: 'WhatsApp', href: '/whatsapp', icon: MessageCircle, show: true },
     { name: 'Ensaios e Projetos', href: '/projetos', icon: ImageIcon, show: true },
     { name: 'Sobreaviso', href: '/sobreaviso', icon: Baby, show: true },
     { name: 'Calendário', href: '/calendario', icon: Calendar, show: true },

@@ -318,6 +318,54 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_messages: {
+        Row: {
+          client_id: string
+          content: string
+          created_at: string
+          direction: string
+          id: string
+          status: string
+          tenant_id: string
+          whatsapp_id: string | null
+        }
+        Insert: {
+          client_id: string
+          content: string
+          created_at?: string
+          direction: string
+          id?: string
+          status: string
+          tenant_id: string
+          whatsapp_id?: string | null
+        }
+        Update: {
+          client_id?: string
+          content?: string
+          created_at?: string
+          direction?: string
+          id?: string
+          status?: string
+          tenant_id?: string
+          whatsapp_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'whatsapp_messages_client_id_fkey'
+            columns: ['client_id']
+            isOneToOne: false
+            referencedRelation: 'clients'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'whatsapp_messages_tenant_id_fkey'
+            columns: ['tenant_id']
+            isOneToOne: false
+            referencedRelation: 'tenants'
+            referencedColumns: ['id']
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -525,6 +573,15 @@ export const Constants = {
 //   name: text (not null)
 //   branding: jsonb (nullable)
 //   created_at: timestamp with time zone (not null, default: now())
+// Table: whatsapp_messages
+//   id: uuid (not null, default: gen_random_uuid())
+//   tenant_id: uuid (not null)
+//   client_id: uuid (not null)
+//   content: text (not null)
+//   direction: text (not null)
+//   status: text (not null)
+//   whatsapp_id: text (nullable)
+//   created_at: timestamp with time zone (not null, default: now())
 
 // --- CONSTRAINTS ---
 // Table: alerts
@@ -557,6 +614,13 @@ export const Constants = {
 //   FOREIGN KEY projects_tenant_id_fkey: FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 // Table: tenants
 //   PRIMARY KEY tenants_pkey: PRIMARY KEY (id)
+// Table: whatsapp_messages
+//   FOREIGN KEY whatsapp_messages_client_id_fkey: FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+//   CHECK whatsapp_messages_direction_check: CHECK ((direction = ANY (ARRAY['inbound'::text, 'outbound'::text])))
+//   PRIMARY KEY whatsapp_messages_pkey: PRIMARY KEY (id)
+//   CHECK whatsapp_messages_status_check: CHECK ((status = ANY (ARRAY['sent'::text, 'delivered'::text, 'read'::text, 'failed'::text, 'received'::text])))
+//   FOREIGN KEY whatsapp_messages_tenant_id_fkey: FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+//   UNIQUE whatsapp_messages_whatsapp_id_key: UNIQUE (whatsapp_id)
 
 // --- ROW LEVEL SECURITY POLICIES ---
 // Table: alerts
@@ -602,6 +666,10 @@ export const Constants = {
 //     USING: (id = get_user_tenant_id())
 //   Policy "Users can view their own tenant" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: (id = get_user_tenant_id())
+// Table: whatsapp_messages
+//   Policy "tenant_isolation" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: (tenant_id = get_user_tenant_id())
+//     WITH CHECK: (tenant_id = get_user_tenant_id())
 
 // --- DATABASE FUNCTIONS ---
 // FUNCTION get_user_role()
@@ -671,3 +739,9 @@ export const Constants = {
 //   END;
 //   $function$
 //
+
+// --- INDEXES ---
+// Table: whatsapp_messages
+//   CREATE INDEX idx_whatsapp_messages_client_id ON public.whatsapp_messages USING btree (client_id)
+//   CREATE INDEX idx_whatsapp_messages_tenant_id ON public.whatsapp_messages USING btree (tenant_id)
+//   CREATE UNIQUE INDEX whatsapp_messages_whatsapp_id_key ON public.whatsapp_messages USING btree (whatsapp_id)

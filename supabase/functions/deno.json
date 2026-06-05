@@ -1,0 +1,6 @@
+{
+  "_versions": {
+    "whatsapp-webhook": 2,
+    "send-whatsapp-message": 2
+  }
+}

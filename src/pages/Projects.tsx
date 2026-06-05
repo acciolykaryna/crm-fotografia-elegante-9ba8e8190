@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Calendar as CalendarIcon, Plus, LayoutDashboard } from 'lucide-react'
+import { Calendar as CalendarIcon, Plus, LayoutDashboard, MessageCircle } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
@@ -424,7 +424,19 @@ export default function Projects() {
                           </Badge>
                         </div>
                         <div className="flex items-center justify-between mb-3">
-                          <p className="text-xs text-muted-foreground">{clientName}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs text-muted-foreground">{clientName}</p>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              asChild
+                              className="h-5 w-5 text-muted-foreground hover:text-primary"
+                            >
+                              <Link to={`/comunicacao?client=${project.client_id}`}>
+                                <MessageCircle className="h-3 w-3" />
+                              </Link>
+                            </Button>
+                          </div>
                           {assignedPhoto && isAdmin && (
                             <Avatar
                               className="h-5 w-5 border border-border"

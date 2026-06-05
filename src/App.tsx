@@ -7,6 +7,7 @@ import Index from './pages/Index'
 import Clients from './pages/Clients'
 import Projects from './pages/Projects'
 import CalendarPage from './pages/Calendar'
+import WhatsApp from './pages/WhatsApp'
 import Alerts from './pages/Alerts'
 import OnCall from './pages/OnCall'
 import Templates from './pages/Templates'
@@ -66,6 +67,7 @@ const App = () => (
             <Route path="/calendario" element={<CalendarPage />} />
             <Route path="/sobreaviso" element={<OnCall />} />
             <Route path="/alertas" element={<Alerts />} />
+            <Route path="/whatsapp" element={<WhatsApp />} />
             <Route path="/templates" element={<Templates />} />
             <Route path="/equipe" element={<Team />} />
           </Route>
